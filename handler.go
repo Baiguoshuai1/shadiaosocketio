@@ -109,7 +109,6 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 			return
 		}
 
-		log.Println("[processIncomingMessage]", rawArr)
 		f.callFunc(c, rawArr...)
 
 	case protocol.MessageTypeAckRequest:

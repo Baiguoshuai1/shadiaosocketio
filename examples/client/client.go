@@ -36,13 +36,13 @@ func sendMsg(c *shadiaosocketio.Client, args ...interface{}) {
 
 func createClient() {
 	c, err := shadiaosocketio.Dial(
-		shadiaosocketio.GetUrl("localhost", 81, false),
+		shadiaosocketio.GetUrl("localhost", 2233, false),
 		*websocket.GetDefaultWebsocketTransport())
 	if err != nil {
 		panic(err)
 	}
 
-	err = c.On("/message", func(h *shadiaosocketio.Channel, args Message) {
+	err = c.On("message", func(h *shadiaosocketio.Channel, args Message) {
 		log.Println("--- Got chat message: ", args)
 	})
 	if err != nil {
@@ -66,7 +66,7 @@ func createClient() {
 		Id:   99,
 		Text: "second arg",
 	})
-	sendJoin(c)
+	//sendJoin(c)
 	if err != nil {
 		panic(err)
 	}

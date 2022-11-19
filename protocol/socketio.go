@@ -3,7 +3,6 @@ package protocol
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"strconv"
 	"strings"
 )
@@ -86,7 +85,6 @@ func Encode(msg *Message, args ...interface{}) (string, error) {
 		return "", err
 	}
 
-	log.Println("send msg", str)
 	return result + "[" + string(jsonMethod) + str + "]", nil
 }
 

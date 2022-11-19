@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/gorilla/websocket"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
 )
@@ -51,7 +50,6 @@ func (wsc *Connection) GetMessage() (message string, err error) {
 	wsc.socket.SetReadDeadline(time.Now().Add(wsc.transport.ReceiveTimeout))
 	msgType, reader, err := wsc.socket.NextReader()
 	if err != nil {
-		log.Println(err)
 		return "", err
 	}
 
@@ -82,8 +80,6 @@ func (wsc *Connection) GetMessage() (message string, err error) {
 			Text: ErrorPacketWrong.Error(),
 		}
 	}
-
-	log.Println("websocket msg", text)
 
 	return text, nil
 }

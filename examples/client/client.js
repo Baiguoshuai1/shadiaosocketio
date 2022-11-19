@@ -9,7 +9,7 @@ socket.on('message', function(msg) {
 socket.on('connect', function () {
     console.log('socket connected');
 
-    socket.emit('message', "1");
+    socket.emit('message', "1", { id: 2, text: "js" }, "hello");
 });
 socket.on('connect_error', function (e) {
     console.log('connect_error', e)
