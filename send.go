@@ -69,6 +69,7 @@ func (c *Channel) Ack(method string, timeout time.Duration, args ...interface{})
 
 	select {
 	case result := <-waiter:
+		c.ack.removeWaiter(msg.AckId)
 		return result, nil
 	case <-time.After(timeout):
 		c.ack.removeWaiter(msg.AckId)

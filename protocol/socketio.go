@@ -131,13 +131,21 @@ func getMessageType(data string) (int, error) {
 /**
 Get ack id of current packet, if present
 */
-func getAck(text string) (ackId int, restText string, err error) {
+func getAck(text string, mType int) (ackId int, restText string, err error) {
 	if len(text) < 4 {
 		return 0, "", ErrorWrongPacket
 	}
 	text = text[2:]
+	restText = ""
 
 	pos := strings.IndexByte(text, '[')
+	if mType == MessageTypeAckResponse {
+		pos = strings.IndexByte(text, ',')
+		restText = text[pos+1:]
+	} else {
+		restText = text[pos:]
+	}
+
 	if pos == -1 {
 		return 0, "", ErrorWrongPacket
 	}
@@ -147,7 +155,7 @@ func getAck(text string) (ackId int, restText string, err error) {
 		return 0, "", err
 	}
 
-	return ack, text[pos:], nil
+	return ack, restText, nil
 }
 
 /**
@@ -205,7 +213,7 @@ func Decode(data string) (*Message, error) {
 		return msg, nil
 	}
 
-	ack, rest, err := getAck(data)
+	ack, rest, err := getAck(data, msg.Type)
 	msg.AckId = ack
 	if msg.Type == MessageTypeAckResponse {
 		if err != nil {

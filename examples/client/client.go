@@ -23,7 +23,7 @@ func sendJoin(c *shadiaosocketio.Client) {
 	if err != nil {
 		panic(err)
 	} else {
-		log.Println("cb:", result, reflect.TypeOf(result))
+		log.Println("sendJoin cb:", result, reflect.TypeOf(result))
 	}
 }
 
@@ -66,7 +66,7 @@ func createClient() {
 		Id:   99,
 		Text: "second arg",
 	})
-	//sendJoin(c)
+	sendJoin(c)
 	if err != nil {
 		panic(err)
 	}
