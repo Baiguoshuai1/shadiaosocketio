@@ -3,6 +3,8 @@ package shadiaosocketio
 import (
 	"encoding/json"
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
+	"github.com/buger/jsonparser"
+	"log"
 	"reflect"
 	"sync"
 )
@@ -89,12 +91,25 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 			return
 		}
 
-		var rawArr []string
-		err := json.Unmarshal([]byte(msg.Args), &rawArr)
-		if err != nil {
+		if msg.Args == "" {
+			f.callFunc(c)
 			return
 		}
 
+		var rawArr []string
+		_, err := jsonparser.ArrayEach([]byte(msg.Args), func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
+			if dataType == jsonparser.String {
+				rawArr = append(rawArr, "\""+string(value)+"\"")
+			} else {
+				rawArr = append(rawArr, string(value))
+			}
+		})
+		if err != nil {
+			log.Println("jsonparser error:", err)
+			return
+		}
+
+		log.Println("[processIncomingMessage]", rawArr)
 		f.callFunc(c, rawArr...)
 
 	case protocol.MessageTypeAckRequest:
@@ -105,8 +120,15 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 		}
 
 		var rawArr []string
-		err := json.Unmarshal([]byte(msg.Args), &rawArr)
+		_, err := jsonparser.ArrayEach([]byte(msg.Args), func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
+			if dataType == jsonparser.String {
+				rawArr = append(rawArr, "\""+string(value)+"\"")
+			} else {
+				rawArr = append(rawArr, string(value))
+			}
+		})
 		if err != nil {
+			log.Println("jsonparser error:", err)
 			return
 		}
 
@@ -141,6 +163,7 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 			var str string
 			err := json.Unmarshal([]byte(msg.Args), &str)
 			if err != nil {
+				log.Println(err)
 				return
 			}
 			waiter <- str

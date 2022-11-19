@@ -36,7 +36,7 @@ func sendMsg(c *shadiaosocketio.Client, args ...interface{}) {
 
 func createClient() {
 	c, err := shadiaosocketio.Dial(
-		shadiaosocketio.GetUrl("localhost", 2233, false),
+		shadiaosocketio.GetUrl("localhost", 81, false),
 		*websocket.GetDefaultWebsocketTransport())
 	if err != nil {
 		panic(err)

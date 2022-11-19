@@ -3,6 +3,7 @@ package protocol
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -51,7 +52,7 @@ func Encode(msg *Message, args ...interface{}) (string, error) {
 		return "", err
 	}
 
-	var arr []string
+	var str string
 	if args != nil {
 		for _, value := range args {
 			j, err := json.Marshal(&value)
@@ -59,13 +60,8 @@ func Encode(msg *Message, args ...interface{}) (string, error) {
 				return "", err
 			}
 
-			arr = append(arr, string(j))
+			str = str + "," + string(j)
 		}
-	}
-
-	strArr, err := json.Marshal(arr)
-	if err != nil {
-		return "", err
 	}
 
 	if msg.Type == MessageTypeEmpty || msg.Type == MessageTypePing ||
@@ -82,7 +78,7 @@ func Encode(msg *Message, args ...interface{}) (string, error) {
 	}
 
 	if msg.Type == MessageTypeAckResponse {
-		return result + string(strArr), nil
+		return result + str, nil
 	}
 
 	jsonMethod, err := json.Marshal(&msg.Method)
@@ -90,7 +86,8 @@ func Encode(msg *Message, args ...interface{}) (string, error) {
 		return "", err
 	}
 
-	return result + "[" + string(jsonMethod) + "," + string(strArr) + "]", nil
+	log.Println("send msg", str)
+	return result + "[" + string(jsonMethod) + str + "]", nil
 }
 
 func MustEncode(msg *Message) string {
@@ -216,7 +213,7 @@ func Decode(data string) (*Message, error) {
 		if err != nil {
 			return nil, err
 		}
-		msg.Args = rest[1 : len(rest)-1]
+		msg.Args = "\"" + rest + "\""
 		return msg, nil
 	}
 
@@ -229,6 +226,7 @@ func Decode(data string) (*Message, error) {
 	if err != nil {
 		return nil, err
 	}
+	msg.Args = "[" + msg.Args + "]"
 
 	return msg, nil
 }

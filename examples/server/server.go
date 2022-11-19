@@ -23,7 +23,7 @@ func main() {
 	server.On(shadiaosocketio.OnConnection, func(c *shadiaosocketio.Channel) {
 		log.Println("received client", c.Id())
 
-		c.Emit("/message", Message{10, "main", "using emit"})
+		c.Emit("message", Message{10, "main", "using emit"})
 
 		c.Join("admin")
 		c.BroadcastTo("admin", "/admin", Message{10, "main", "using broadcast"})
