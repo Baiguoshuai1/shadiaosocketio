@@ -219,7 +219,7 @@ func Decode(data string) (*Message, error) {
 		if err != nil {
 			return nil, err
 		}
-		msg.Args = "\"" + rest + "\""
+		msg.Args = rest
 		return msg, nil
 	}
 

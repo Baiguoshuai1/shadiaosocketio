@@ -21,7 +21,7 @@ type Message struct {
 func sendJoin(c *shadiaosocketio.Client) {
 	result, err := c.Ack("/admin", time.Second*5, Channel{"admin"})
 	if err != nil {
-		panic(err)
+		log.Println("sendJoin cb err:", err)
 	} else {
 		log.Println("sendJoin cb:", result, reflect.TypeOf(result))
 	}

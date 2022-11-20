@@ -105,7 +105,7 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 			}
 		})
 		if err != nil {
-			log.Println("jsonparser error:", err)
+			log.Println("Jsonparser error:", err)
 			return
 		}
 
@@ -127,7 +127,7 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 			}
 		})
 		if err != nil {
-			log.Println("jsonparser error:", err)
+			log.Println("Jsonparser error:", err)
 			return
 		}
 
@@ -144,9 +144,8 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 
 			if kind == reflect.String {
 				arr = append(arr, ackRes[i].String())
-			} else if kind == reflect.Int {
-				arr = append(arr, ackRes[i].Int())
 			} else {
+				log.Println("Arc func should return string!")
 				return
 			}
 		}
@@ -162,7 +161,7 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 			var str string
 			err := json.Unmarshal([]byte(msg.Args), &str)
 			if err != nil {
-				log.Println(err)
+				panic(err)
 				return
 			}
 			waiter <- str

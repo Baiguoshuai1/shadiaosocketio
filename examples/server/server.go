@@ -39,10 +39,9 @@ func main() {
 		log.Println("received arg1:", arg1, "arg2.text:", arg2.Text, "arg3:", arg3)
 	})
 
-	server.On("/admin", func(c *shadiaosocketio.Channel, channel Channel) int {
+	server.On("/admin", func(c *shadiaosocketio.Channel, channel Channel) string {
 		log.Println("client joined to", channel.Channel, "id:", c.Id())
-		//return c.Id() + " join success!"
-		return 666
+		return c.Id() + " join success!"
 	})
 
 	serveMux := http.NewServeMux()
