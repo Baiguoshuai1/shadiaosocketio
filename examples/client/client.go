@@ -49,6 +49,13 @@ func createClient() {
 		panic(err)
 	}
 
+	err = c.On("/admin", func(h *shadiaosocketio.Channel, args Message) {
+		log.Println("--- Got admin message: ", args)
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	err = c.On(shadiaosocketio.OnDisconnection, func(h *shadiaosocketio.Channel, reason websocket.CloseError) {
 		log.Println("Disconnected, code:", reason.Code, "text:", reason.Text)
 	})

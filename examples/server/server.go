@@ -25,8 +25,10 @@ func main() {
 
 		c.Emit("message", Message{10, "main", "using emit"})
 
-		c.Join("admin")
-		c.BroadcastTo("admin", "/admin", Message{10, "main", "using broadcast"})
+		c.Join("room")
+		c.BroadcastTo("room", "/admin", Message{10, "main", "using broadcast"})
+
+		server.BroadcastTo("room", "/admin", Message{1, "boss", "hello everyone!"})
 	})
 	server.On(shadiaosocketio.OnDisconnection, func(c *shadiaosocketio.Channel) {
 		log.Println("received disconnect", c.Id())

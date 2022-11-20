@@ -6,6 +6,10 @@ socket.on('message', function(msg) {
     console.log('received msg:', msg);
 });
 
+socket.on('/admin', function(msg) {
+    console.log('received admin msg:', msg);
+});
+
 socket.on('connect', function () {
     console.log('socket connected');
 
