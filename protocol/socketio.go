@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// https://github.com/socketio/socket.io-protocol#difference-between-v3-and-v2
 const (
 	Open  = "0"
 	Close = "1"
@@ -161,6 +162,7 @@ func getAck(text string, mType int) (ackId int, restText string, err error) {
 /**
 Get message method of current packet, if present
 */
+// todo use struct parse
 func getMethod(text string) (method, restText string, err error) {
 	var start, end, rest, countQuote int
 
