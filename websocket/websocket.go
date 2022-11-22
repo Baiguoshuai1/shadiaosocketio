@@ -178,7 +178,7 @@ func (wsc *Connection) WriteMessage(message string) error {
 		messageType = websocket.TextMessage
 		data = []byte(message)
 	} else {
-		if wsc.transport.binaryMessage {
+		if wsc.transport.BinaryMessage {
 			messageType = websocket.BinaryMessage
 			data, err = encodeBinaryMessage(message)
 			if err != nil {
@@ -219,7 +219,7 @@ type Transport struct {
 
 	BufferSize    int
 	UnsecureTLS   bool
-	binaryMessage bool
+	BinaryMessage bool
 
 	RequestHeader http.Header
 }
@@ -270,7 +270,7 @@ func GetDefaultWebsocketTransport() *Transport {
 		ReceiveTimeout: WsDefaultReceiveTimeout,
 		SendTimeout:    WsDefaultSendTimeout,
 		BufferSize:     WsDefaultBufferSize,
-		binaryMessage:  false,
+		BinaryMessage:  false,
 		UnsecureTLS:    false,
 	}
 }
