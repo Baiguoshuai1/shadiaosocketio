@@ -174,7 +174,7 @@ func (wsc *Connection) WriteMessage(message string) error {
 
 	messageType := websocket.TextMessage
 
-	if len(message) == 1 {
+	if len(message) <= 2 || message[0] == '0' {
 		messageType = websocket.TextMessage
 		data = []byte(message)
 	} else {
@@ -270,7 +270,7 @@ func GetDefaultWebsocketTransport() *Transport {
 		ReceiveTimeout: WsDefaultReceiveTimeout,
 		SendTimeout:    WsDefaultSendTimeout,
 		BufferSize:     WsDefaultBufferSize,
-		binaryMessage:  true,
+		binaryMessage:  false,
 		UnsecureTLS:    false,
 	}
 }
