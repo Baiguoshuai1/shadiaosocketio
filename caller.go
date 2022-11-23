@@ -53,7 +53,7 @@ func (c *caller) getOutType(index int) interface{} {
 	return reflect.New(c.Func.Type().Out(index)).Interface()
 }
 
-func (c *caller) callFunc(h *Channel, args ...interface{}) []reflect.Value {
+func (c *caller) callFunc(h *Channel, argsType int, args ...interface{}) []reflect.Value {
 	arr := make([]reflect.Value, 0, 1+c.NumInt)
 	arr = append(arr, reflect.ValueOf(h))
 
@@ -65,7 +65,13 @@ func (c *caller) callFunc(h *Channel, args ...interface{}) []reflect.Value {
 			continue
 		}
 
-		marshal, _ := json.Marshal(args[i])
+		var marshal []byte
+		if argsType == 0 {
+			marshal, _ = json.Marshal(args[i])
+		} else {
+			marshal = args[i].([]byte)
+		}
+
 		err := json.Unmarshal(marshal, &data)
 		if err != nil {
 			panic(err)

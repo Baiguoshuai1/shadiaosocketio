@@ -1,14 +1,9 @@
 package protocol
 
-import (
-	"errors"
-)
-
-// https://github.com/socketio/socket.io-protocol#difference-between-v3-and-v2
-
-var (
-	ErrorWrongMessageType = errors.New("wrong message type")
-	ErrorWrongPacket      = errors.New("wrong packet")
+// https://github.com/socketio/socket.io-protocol#connection-to-a-namespace
+const (
+	Protocol3 = 3
+	Protocol4 = 4
 )
 
 func GetMsgPacket(msg *Message) *MsgPack {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
 	"github.com/Baiguoshuai1/shadiaosocketio/websocket"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -14,8 +15,8 @@ const (
 	queueBufferSize = 10000
 )
 const (
-	ManualCloseTxt  = "manual close"
-	ManualCloseCode = 101
+	DefaultCloseTxt  = "transport close"
+	DefaultCloseCode = 101
 )
 
 var (
@@ -26,7 +27,6 @@ var (
 engine.io header to send or receive
 */
 type Header struct {
-	NewSid       string   `json:"newSid"`
 	Sid          string   `json:"sid"`
 	Upgrades     []string `json:"upgrades"`
 	PingInterval int      `json:"pingInterval"`
@@ -68,13 +68,6 @@ func (c *Channel) initChannel() {
 	c.setAliveValue(true)
 }
 
-/**
-Get id of current socket connection
-*/
-func (c *Channel) Sid() string {
-	return c.header.NewSid
-}
-
 func (c *Channel) Id() string {
 	return c.header.Sid
 }
@@ -104,13 +97,14 @@ func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 		//already closed
 		return nil
 	}
+	c.setAliveValue(false)
 
 	var s []interface{}
 	closeErr := &websocket.CloseError{}
 
 	if len(args) == 0 {
-		closeErr.Code = ManualCloseCode
-		closeErr.Text = ManualCloseTxt
+		closeErr.Code = DefaultCloseCode
+		closeErr.Text = DefaultCloseTxt
 
 		s = append(s, closeErr)
 	} else {
@@ -118,7 +112,6 @@ func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 	}
 
 	c.conn.Close()
-	c.setAliveValue(false)
 
 	//clean outloop
 	for len(c.out) > 0 {
@@ -138,7 +131,9 @@ func inLoop(c *Channel, m *methods) error {
 			return closeChannel(c, m, err)
 		}
 		prefix := string(msg[0])
+		protocolV := c.conn.GetProtocol()
 
+		log.Println("[inLoop]", msg)
 		switch prefix {
 		case protocol.OpenMsg:
 			if err := json.Unmarshal([]byte(msg[1:]), &c.header); err != nil {
@@ -148,15 +143,41 @@ func inLoop(c *Channel, m *methods) error {
 
 				return closeChannel(c, m, closeErr)
 			}
-			m.callLoopEvent(c, OnConnection)
+
+			if protocolV == protocol.Protocol3 {
+				m.callLoopEvent(c, OnConnection)
+				// in protocol v3, the client sends a ping, and the server answers with a pong
+				go schedulePing(c)
+			}
+			if c.conn.GetProtocol() == protocol.Protocol4 {
+				// in protocol v4 & binary msg Connection to a namespace
+				if c.conn.GetUseBinaryMessage() {
+					c.out <- &protocol.MsgPack{
+						Type: protocol.CONNECT,
+						Nsp:  "/",
+						Data: &struct {
+						}{},
+					}
+					// in protocol v4 & text msg Connection to a namespace
+				} else {
+					c.out <- protocol.CommonMsg + protocol.OpenMsg
+				}
+			}
 		case protocol.CloseMsg:
 			return closeChannel(c, m)
 		case protocol.PingMsg:
+			// in protocol v4, the server sends a ping, and the client answers with a pong
 			c.out <- protocol.PongMsg
 		case protocol.PongMsg:
 		case protocol.UpgradeMsg:
 		case protocol.CommonMsg:
+			// in protocol v3 & binary msg  ps: 4{"type":0,"data":null,"nsp":"/","id":0}
+			// in protocol v3 & text msg  ps: 40 or 41 or 42["message", ...]
+			// in protocol v4 & text msg  ps: 40 or 41 or 42["message", ...]
 			go m.processIncomingMessage(c, msg[1:])
+		default:
+			// in protocol v4 & binary msg ps: {"type":0,"data":{"sid":"HWEr440000:1:R1CHyink:shadiao:101"},"nsp":"/","id":0}
+			go m.processIncomingMessage(c, msg)
 		}
 	}
 }
@@ -191,7 +212,7 @@ func outLoop(c *Channel, m *methods) error {
 /**
 Pinger sends ping messages for keeping connection alive
 */
-func pinger(c *Channel) {
+func schedulePing(c *Channel) {
 	interval, _ := c.conn.PingParams()
 	ticker := time.NewTicker(interval)
 	for {

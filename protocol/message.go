@@ -1,6 +1,7 @@
 package protocol
 
 // https://github.com/socketio/socket.io-protocol#difference-between-v3-and-v2
+
 // msg type
 const (
 	CONNECT       = 0
@@ -27,6 +28,13 @@ type MsgPack struct {
 	Data interface{} `json:"data"`
 	Nsp  string      `json:"nsp"`
 	Id   int         `json:"id"`
+}
+
+type OpenMsgPack struct {
+	MsgPack
+	Data struct {
+		Sid string `json:"sid"`
+	}
 }
 
 type Message struct {

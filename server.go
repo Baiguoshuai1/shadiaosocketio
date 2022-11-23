@@ -315,16 +315,19 @@ func (s *Server) SendOpenSequence(c *Channel) {
 		panic(err)
 	}
 
-	// GET /socket.io/?EIO=4&transport=polling&t=N8hyd6w
-	// < HTTP/1.1 200 OK
-	// < Content-Type: text/plain; charset=UTF-8
-	// 0{"sid":"lv_VI97HAXpY6yYWAAAC","upgrades":["websocket"],"pingInterval":25000,"pingTimeout":5000,"maxPayload":1000000}
-	c.out <- protocol.OpenMsg + string(jsonHdr)
-	// GET /socket.io/?EIO=4&transport=polling&t=N8hyd7H&sid=lv_VI97HAXpY6yYWAAAC
-	// < HTTP/1.1 200 OK
-	// < Content-Type: text/plain; charset=UTF-8
-	// 40
-	c.out <- protocol.CommonMsg + protocol.OpenMsg
+	if s.tr.BinaryMessage {
+		// GET /socket.io/?EIO=4&transport=polling&t=N8hyd6w
+		// < HTTP/1.1 200 OK
+		// < Content-Type: text/plain; charset=UTF-8
+		// 0{"sid":"lv_VI97HAXpY6yYWAAAC","upgrades":["websocket"],"pingInterval":25000,"pingTimeout":5000,"maxPayload":1000000}
+		c.out <- protocol.OpenMsg + string(jsonHdr)
+	} else {
+		// GET /socket.io/?EIO=4&transport=polling&t=N8hyd7H&sid=lv_VI97HAXpY6yYWAAAC
+		// < HTTP/1.1 200 OK
+		// < Content-Type: text/plain; charset=UTF-8
+		// 40
+		c.out <- protocol.CommonMsg + protocol.OpenMsg
+	}
 }
 
 /**

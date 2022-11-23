@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/vmihailenco/msgpack/v5"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -52,6 +53,14 @@ type Connection struct {
 	transport *Transport
 }
 
+func (wsc Connection) GetProtocol() int {
+	return wsc.transport.Protocol
+}
+
+func (wsc Connection) GetUseBinaryMessage() bool {
+	return wsc.transport.BinaryMessage
+}
+
 func (wsc *Connection) GetMessage() (message string, err error) {
 	err = wsc.socket.SetReadDeadline(time.Now().Add(wsc.transport.ReceiveTimeout))
 	if err != nil {
@@ -72,10 +81,12 @@ func (wsc *Connection) GetMessage() (message string, err error) {
 		}
 	}
 
-	return decodeMessage(data, msgType)
+	//log.Println("get msg", data)
+	return wsc.decodeMessage(data, msgType)
 }
 
 func (wsc *Connection) WriteMessage(message interface{}) error {
+	log.Println("WriteMessage", message)
 	err := wsc.socket.SetWriteDeadline(time.Now().Add(wsc.transport.SendTimeout))
 	if err != nil {
 		return err
@@ -93,7 +104,7 @@ func (wsc *Connection) WriteMessage(message interface{}) error {
 			messageType = websocket.TextMessage
 		}
 
-		data, err = encodeMessage(message.(*protocol.MsgPack), messageType)
+		data, err = wsc.encodeMessage(message.(*protocol.MsgPack), messageType)
 		if err != nil {
 			return err
 		}
@@ -113,13 +124,18 @@ func (wsc *Connection) WriteMessage(message interface{}) error {
 	return nil
 }
 
-func decodeMessage(data []byte, messageType int) (string, error) {
+func (wsc *Connection) decodeMessage(data []byte, messageType int) (string, error) {
 	if messageType == websocket.TextMessage {
 		return string(data), nil
 	}
+	prefix := ""
+	buf := bytes.NewBuffer(data)
 
-	prefix := strconv.Itoa(int(data[0]))
-	buf := bytes.NewBuffer(data[1:])
+	if wsc.transport.Protocol == protocol.Protocol3 {
+		prefix = strconv.Itoa(int(data[0]))
+		buf = bytes.NewBuffer(data[1:])
+	}
+
 	dec := msgpack.NewDecoder(buf)
 	dec.SetCustomStructTag("json")
 
@@ -140,21 +156,21 @@ func decodeMessage(data []byte, messageType int) (string, error) {
 		}
 	}
 
+	log.Println("decodeMessage", prefix, string(msg))
 	return prefix + string(msg), nil
 }
 
-func encodeMessage(msg *protocol.MsgPack, messageType int) ([]byte, error) {
+func (wsc *Connection) encodeMessage(msg *protocol.MsgPack, messageType int) ([]byte, error) {
 	if messageType == websocket.TextMessage {
-		marshal, err := json.Marshal(msg)
-		if err != nil {
-			return nil, err
-		}
+		// Engine.IO Flag
+		prefix := protocol.CommonMsg
+		// Socket.IO Flag
+		event := strconv.Itoa(msg.Type)
+		data, _ := json.Marshal(msg.Data)
 
-		bf := make([]byte, 0, 1+len(marshal))
-		bf = append(bf, []byte(protocol.CommonMsg)[0])
-		bf = append(bf, marshal...)
+		packet := prefix + event + string(data)
 
-		return bf, nil
+		return []byte(packet), nil
 	}
 
 	buf := bytes.Buffer{}
@@ -171,9 +187,13 @@ func encodeMessage(msg *protocol.MsgPack, messageType int) ([]byte, error) {
 		return nil, err
 	}
 
-	bf := make([]uint8, 0, 1+buf.Len())
+	bf := make([]uint8, 0, buf.Len())
 	bf = append(bf, uint8(prefix))
 	bf = append(bf, buf.Bytes()...)
+
+	if wsc.transport.Protocol == protocol.Protocol4 {
+		bf = bf[1:]
+	}
 
 	return bf, nil
 }
@@ -192,6 +212,7 @@ type Transport struct {
 	ReceiveTimeout time.Duration
 	SendTimeout    time.Duration
 
+	Protocol      int
 	BufferSize    int
 	UnsecureTLS   bool
 	BinaryMessage bool
@@ -240,12 +261,13 @@ Returns websocket connection with default params
 */
 func GetDefaultWebsocketTransport() *Transport {
 	return &Transport{
+		Protocol:       protocol.Protocol4,
 		PingInterval:   WsDefaultPingInterval,
 		PingTimeout:    WsDefaultPingTimeout,
 		ReceiveTimeout: WsDefaultReceiveTimeout,
 		SendTimeout:    WsDefaultSendTimeout,
 		BufferSize:     WsDefaultBufferSize,
-		BinaryMessage:  false,
+		BinaryMessage:  true,
 		UnsecureTLS:    false,
 	}
 }
