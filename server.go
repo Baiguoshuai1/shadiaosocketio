@@ -315,14 +315,16 @@ func (s *Server) SendOpenSequence(c *Channel) {
 		panic(err)
 	}
 
-	c.out <- protocol.MustEncode(
-		&protocol.Message{
-			Type: protocol.MessageTypeOpen,
-			Args: string(jsonHdr),
-		},
-	)
-
-	c.out <- protocol.MustEncode(&protocol.Message{Type: protocol.MessageTypeEmpty})
+	// GET /socket.io/?EIO=4&transport=polling&t=N8hyd6w
+	// < HTTP/1.1 200 OK
+	// < Content-Type: text/plain; charset=UTF-8
+	// 0{"sid":"lv_VI97HAXpY6yYWAAAC","upgrades":["websocket"],"pingInterval":25000,"pingTimeout":5000,"maxPayload":1000000}
+	c.out <- protocol.OpenMsg + string(jsonHdr)
+	// GET /socket.io/?EIO=4&transport=polling&t=N8hyd7H&sid=lv_VI97HAXpY6yYWAAAC
+	// < HTTP/1.1 200 OK
+	// < Content-Type: text/plain; charset=UTF-8
+	// 40
+	c.out <- protocol.CommonMsg + protocol.OpenMsg
 }
 
 /**
@@ -393,34 +395,21 @@ func (s *Server) AmountOfRooms() int64 {
 	return int64(len(s.channels))
 }
 
-/**
-Enables CORS for all domains
-*/
 func (s *Server) EnableCORS(domain string) {
 	s.headers["Access-Control-Allow-Origin"] = domain
 	s.headers["Access-Control-Allow-Credentials"] = "true"
 }
 
-/**
-Add a header to HTTP responses
-*/
 func (s *Server) AddHeader(name string, value string) {
 	s.headers[name] = value
 }
 
-/**
-Replaces the pre-configured websocket
-*/
 func (s *Server) UpdateTransport(tr websocket.Transport) {
 	s.tr = tr
 }
 
-/**
-Create new socket.io server
-*/
 func NewServer(tr websocket.Transport) *Server {
 	s := Server{}
-	s.initMethods()
 	s.tr = tr
 	s.headers = make(map[string]string)
 	s.channels = make(map[string]map[*Channel]struct{})

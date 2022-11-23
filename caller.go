@@ -30,10 +30,10 @@ func newCaller(f interface{}) (*caller, error) {
 
 	fType := fVal.Type()
 	if fType.NumOut() > 1 {
-		return nil, ErrorCallerMaxOneValue
+		panic(ErrorCallerMaxOneValue)
 	}
 	if fType.NumIn() > 5 {
-		return nil, ErrorCallerNot2Args
+		panic(ErrorCallerNot2Args)
 	}
 
 	curCaller := &caller{
@@ -49,17 +49,24 @@ func (c *caller) getArgType(index int) interface{} {
 	return reflect.New(c.Func.Type().In(index)).Interface()
 }
 
-func (c *caller) callFunc(h *Channel, args ...string) []reflect.Value {
-	arr := []reflect.Value{reflect.ValueOf(h)}
+func (c *caller) getOutType(index int) interface{} {
+	return reflect.New(c.Func.Type().Out(index)).Interface()
+}
+
+func (c *caller) callFunc(h *Channel, args ...interface{}) []reflect.Value {
+	arr := make([]reflect.Value, 0, 1+c.NumInt)
+	arr = append(arr, reflect.ValueOf(h))
 
 	for i := 0; i < c.NumInt-1; i++ { // * 1 2   // x{0} y{1}
+		data := c.getArgType(i + 1)
+
 		if i > len(args)-1 {
-			arr = append(arr, reflect.ValueOf(""))
+			arr = append(arr, reflect.ValueOf(data).Elem())
 			continue
 		}
 
-		data := c.getArgType(i + 1)
-		err := json.Unmarshal([]byte(args[i]), &data)
+		marshal, _ := json.Marshal(args[i])
+		err := json.Unmarshal(marshal, &data)
 		if err != nil {
 			panic(err)
 		}

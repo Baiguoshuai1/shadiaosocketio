@@ -26,7 +26,7 @@ var (
 engine.io header to send or receive
 */
 type Header struct {
-	GeSid        string   `json:"geSid"`
+	NewSid       string   `json:"newSid"`
 	Sid          string   `json:"sid"`
 	Upgrades     []string `json:"upgrades"`
 	PingInterval int      `json:"pingInterval"`
@@ -45,7 +45,7 @@ ping is automatic
 type Channel struct {
 	conn *websocket.Connection
 
-	out    chan string
+	out    chan interface{}
 	header Header
 
 	alive     bool
@@ -63,7 +63,7 @@ create channel, map, and set active
 */
 func (c *Channel) initChannel() {
 	//TODO: queueBufferSize from constant to server or socket variable
-	c.out = make(chan string, queueBufferSize)
+	c.out = make(chan interface{}, queueBufferSize)
 	//c.ack.resultWaiters = make(map[int](chan string))
 	c.setAliveValue(true)
 }
@@ -72,7 +72,7 @@ func (c *Channel) initChannel() {
 Get id of current socket connection
 */
 func (c *Channel) Sid() string {
-	return c.header.GeSid
+	return c.header.NewSid
 }
 
 func (c *Channel) Id() string {
@@ -125,10 +125,7 @@ func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 		<-c.out
 	}
 
-	c.out <- protocol.Close
 	m.callLoopEvent(c, OnDisconnection, s...)
-
-	deleteOverflooded(c)
 
 	return nil
 }
@@ -136,54 +133,34 @@ func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 //incoming messages loop, puts incoming messages to In channel
 func inLoop(c *Channel, m *methods) error {
 	for {
-		pkg, err := c.conn.GetMessage()
+		msg, err := c.conn.GetMessage()
 		if err != nil {
 			return closeChannel(c, m, err)
 		}
+		prefix := string(msg[0])
 
-		msg, err := protocol.Decode(pkg)
-		if err != nil {
-			closeErr := &websocket.CloseError{}
-			closeErr.Code = websocket.DecodeErrCode
-			closeErr.Text = err.Error()
-
-			closeChannel(c, m, closeErr)
-			return err
-		}
-
-		switch msg.Type {
-		case protocol.MessageTypeOpen:
-			if err := json.Unmarshal([]byte(msg.Source[1:]), &c.header); err != nil {
+		switch prefix {
+		case protocol.OpenMsg:
+			if err := json.Unmarshal([]byte(msg[1:]), &c.header); err != nil {
 				closeErr := &websocket.CloseError{}
 				closeErr.Code = websocket.ParseOpenMsgCode
-				closeErr.Text = ErrorWrongHeader.Error()
+				closeErr.Text = err.Error()
 
-				closeChannel(c, m, closeErr)
+				return closeChannel(c, m, closeErr)
 			}
 			m.callLoopEvent(c, OnConnection)
-		case protocol.MessageTypePing:
-			c.out <- protocol.Pong
-		case protocol.MessageTypePong:
-		case protocol.MessageTypeUnKnown:
-		default:
-			go m.processIncomingMessage(c, msg)
+		case protocol.CloseMsg:
+			return closeChannel(c, m)
+		case protocol.PingMsg:
+			c.out <- protocol.PongMsg
+		case protocol.PongMsg:
+		case protocol.UpgradeMsg:
+		case protocol.CommonMsg:
+			go m.processIncomingMessage(c, msg[1:])
 		}
 	}
 }
 
-var overflooded sync.Map
-
-func deleteOverflooded(c *Channel) {
-	overflooded.Delete(c)
-}
-
-func storeOverflow(c *Channel) {
-	overflooded.Store(c, struct{}{})
-}
-
-/**
-outgoing messages loop, sends messages from channel to socket
-*/
 func outLoop(c *Channel, m *methods) error {
 	for {
 		outBufferLen := len(c.out)
@@ -193,14 +170,10 @@ func outLoop(c *Channel, m *methods) error {
 			closeErr.Text = ErrorSocketOverflood.Error()
 
 			return closeChannel(c, m, closeErr)
-		} else if outBufferLen > int(queueBufferSize/2) {
-			storeOverflow(c)
-		} else {
-			deleteOverflooded(c)
 		}
 
 		msg := <-c.out
-		if msg == protocol.Close {
+		if msg == protocol.CloseMsg {
 			return nil
 		}
 
@@ -226,6 +199,6 @@ func pinger(c *Channel) {
 		if !c.IsAlive() {
 			return
 		}
-		c.out <- protocol.Ping
+		c.out <- protocol.PingMsg
 	}
 }

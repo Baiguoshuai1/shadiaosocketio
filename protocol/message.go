@@ -1,21 +1,38 @@
 package protocol
 
+// https://github.com/socketio/socket.io-protocol#difference-between-v3-and-v2
+// msg type
 const (
-	MessageTypeOpen        = iota
-	MessageTypeClose       = iota
-	MessageTypePing        = iota
-	MessageTypePong        = iota
-	MessageTypeEmpty       = iota
-	MessageTypeUnKnown     = iota
-	MessageTypeEmit        = iota
-	MessageTypeAckRequest  = iota
-	MessageTypeAckResponse = iota
+	CONNECT       = 0
+	DISCONNECT    = 1
+	EVENT         = 2
+	ACK           = 3
+	CONNECT_ERROR = 4
+	BINARY_EVENT  = 5
+	BINARY_ACK    = 6
 )
+
+// msg value
+const (
+	OpenMsg    = "0"
+	CloseMsg   = "1"
+	PingMsg    = "2"
+	PongMsg    = "3"
+	CommonMsg  = "4"
+	UpgradeMsg = "5"
+)
+
+type MsgPack struct {
+	Type int         `json:"type"`
+	Data interface{} `json:"data"`
+	Nsp  string      `json:"nsp"`
+	Id   int         `json:"id"`
+}
 
 type Message struct {
 	Type   int
 	AckId  int
 	Method string
-	Args   string
-	Source string
+	Nsp    string
+	Args   []interface{}
 }

@@ -3,8 +3,6 @@ package shadiaosocketio
 import (
 	"encoding/json"
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
-	"github.com/buger/jsonparser"
-	"log"
 	"reflect"
 	"sync"
 )
@@ -30,10 +28,6 @@ type methods struct {
 
 	onConnection    systemHandler
 	onDisconnection systemHandler
-}
-
-func (m *methods) initMethods() {
-	//m.messageHandlers = make(sync.Map)
 }
 
 func (m *methods) On(method string, f interface{}) error {
@@ -70,101 +64,70 @@ func (m *methods) callLoopEvent(c *Channel, event string, args ...interface{}) {
 		return
 	}
 
-	var signal []string
-	for _, v := range args {
-		marshal, err := json.Marshal(v)
-		if err != nil {
-			return
-		}
-
-		signal = append(signal, string(marshal))
-	}
-
-	f.callFunc(c, signal...)
+	f.callFunc(c, args...)
 }
 
-func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
-	switch msg.Type {
-	case protocol.MessageTypeEmit:
-		f, ok := m.findMethod(msg.Method)
+func (m *methods) processIncomingMessage(c *Channel, msg string) {
+	packet := &protocol.MsgPack{}
+	err := json.Unmarshal([]byte(msg), &packet)
+	if err != nil {
+		return
+	}
+	if packet.Data == nil {
+		return
+	}
+
+	data := packet.Data.([]interface{})
+	if len(data) == 0 {
+		return
+	}
+	event := data[0].(string)
+
+	switch packet.Type {
+	case protocol.CONNECT:
+	case protocol.DISCONNECT:
+	case protocol.EVENT:
+		f, ok := m.findMethod(event)
 		if !ok {
 			return
 		}
 
-		if msg.Args == "" {
+		if len(data) == 1 {
 			f.callFunc(c)
 			return
 		}
 
-		var rawArr []string
-		_, err := jsonparser.ArrayEach([]byte(msg.Args), func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
-			if dataType == jsonparser.String {
-				rawArr = append(rawArr, "\""+string(value)+"\"")
-			} else {
-				rawArr = append(rawArr, string(value))
-			}
-		})
+		f.callFunc(c, data[1:]...)
+
+	case protocol.ACK:
+		waiter, err := c.ack.getWaiter(packet.Id)
+
 		if err != nil {
-			log.Println("Jsonparser error:", err)
-			return
-		}
-
-		f.callFunc(c, rawArr...)
-
-	case protocol.MessageTypeAckRequest:
-		f, ok := m.findMethod(msg.Method)
-
-		if !ok {
-			return
-		}
-
-		var rawArr []string
-		_, err := jsonparser.ArrayEach([]byte(msg.Args), func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
-			if dataType == jsonparser.String {
-				rawArr = append(rawArr, "\""+string(value)+"\"")
-			} else {
-				rawArr = append(rawArr, string(value))
-			}
-		})
-		if err != nil {
-			log.Println("Jsonparser error:", err)
-			return
-		}
-
-		ackRes := f.callFunc(c, rawArr...)
-
-		ack := &protocol.Message{
-			Type:  protocol.MessageTypeAckResponse,
-			AckId: msg.AckId,
-		}
-
-		var arr []interface{}
-		for i := 0; i < f.NumOut; i++ {
-			kind := f.Func.Type().Out(i).Kind()
-
-			if kind == reflect.String {
-				arr = append(arr, ackRes[i].String())
-			} else {
-				log.Println("Arc func should return string!")
+			f, ok := m.findMethod(event)
+			if !ok {
 				return
 			}
-		}
 
-		err = send(c, ack, arr...)
-		if err != nil {
-			return
-		}
+			arr := make([]reflect.Value, 1, 1)
+			ackRes := f.callFunc(c, data[1:]...)
+			arr[0] = ackRes[0]
 
-	case protocol.MessageTypeAckResponse:
-		waiter, err := c.ack.getWaiter(msg.AckId)
-		if err == nil {
-			var str string
-			err := json.Unmarshal([]byte(msg.Args), &str)
-			if err != nil {
-				panic(err)
-				return
+			r := &protocol.Message{
+				Type:   packet.Type,
+				Method: event,
+				Nsp:    packet.Nsp,
+				AckId:  packet.Id,
+				Args:   []interface{}{arr[0].Interface()},
 			}
-			waiter <- str
+
+			c.out <- protocol.GetMsgPacket(r)
+		} else {
+			// requester
+			waiter <- data[1]
 		}
+	case protocol.CONNECT_ERROR:
+	case protocol.BINARY_EVENT:
+	case protocol.BINARY_ACK:
+
 	}
 }

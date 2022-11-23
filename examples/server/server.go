@@ -30,15 +30,12 @@ func main() {
 
 		server.BroadcastTo("room", "/admin", Message{1, "boss", "hello everyone!"})
 	})
-	server.On(shadiaosocketio.OnDisconnection, func(c *shadiaosocketio.Channel) {
-		log.Println("received disconnect", c.Id())
+	server.On(shadiaosocketio.OnDisconnection, func(c *shadiaosocketio.Channel, reason websocket.CloseError) {
+		log.Println("received disconnect", c.Id(), "code:", reason.Code, "text:", reason.Text)
 	})
 
-	server.On("message", func(c *shadiaosocketio.Channel, arg1 string, arg2 Message, arg3 string) {
-		if arg3 == "" {
-			log.Println("received \"\" string")
-		}
-		log.Println("received arg1:", arg1, "arg2.text:", arg2.Text, "arg3:", arg3)
+	server.On("message", func(c *shadiaosocketio.Channel, arg1 string, arg2 Message, arg3 int, arg4 bool) {
+		log.Println("received arg1:", arg1, "arg2:", arg2, "arg3:", arg3, "arg4:", arg4)
 	})
 
 	server.On("/admin", func(c *shadiaosocketio.Channel, channel Channel) string {

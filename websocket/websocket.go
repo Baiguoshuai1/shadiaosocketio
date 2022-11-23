@@ -5,13 +5,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"github.com/buger/jsonparser"
+	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
 	"github.com/gorilla/websocket"
 	"github.com/vmihailenco/msgpack/v5"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -52,140 +52,50 @@ type Connection struct {
 	transport *Transport
 }
 
-type MsgPack struct {
-	Type int         `json:"type"`
-	Data interface{} `json:"data"`
-	Nsp  string      `json:"nsp"`
-}
-
 func (wsc *Connection) GetMessage() (message string, err error) {
-	wsc.socket.SetReadDeadline(time.Now().Add(wsc.transport.ReceiveTimeout))
+	err = wsc.socket.SetReadDeadline(time.Now().Add(wsc.transport.ReceiveTimeout))
+	if err != nil {
+		return "", err
+	}
+
 	msgType, reader, err := wsc.socket.NextReader()
 	if err != nil {
 		return "", err
 	}
 
 	var data []byte
-
-	if msgType == websocket.BinaryMessage {
-		data, err = ioutil.ReadAll(reader)
-		if err != nil {
-			return "", err
-		}
-
-		str, err := decodeBinaryMessage(data)
-		return str, err
-	} else {
-		data, err = ioutil.ReadAll(reader)
-		if err != nil {
-			return "", &websocket.CloseError{
-				Code: BadBufferErrCode,
-				Text: ErrorBadBuffer.Error(),
-			}
-		}
-	}
-
-	text := string(data)
-
-	if len(text) == 0 {
+	data, err = ioutil.ReadAll(reader)
+	if err != nil {
 		return "", &websocket.CloseError{
-			Code: PacketWrongErrCode,
-			Text: ErrorPacketWrong.Error(),
+			Code: BadBufferErrCode,
+			Text: err.Error(),
 		}
 	}
 
-	return text, nil
+	return decodeMessage(data, msgType)
 }
 
-func decodeBinaryMessage(data []byte) (string, error) {
-	prefix := strconv.Itoa(int(data[0]))
-
-	buf := bytes.NewBuffer(data[1:])
-	dec := msgpack.NewDecoder(buf)
-	dec.SetCustomStructTag("json")
-
-	var m MsgPack
-	err := dec.Decode(&m)
+func (wsc *Connection) WriteMessage(message interface{}) error {
+	err := wsc.socket.SetWriteDeadline(time.Now().Add(wsc.transport.SendTimeout))
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	mType := strconv.Itoa(m.Type)
-	marshal, err := json.Marshal(m.Data)
-	if err != nil {
-		return "", err
-	}
-
-	return prefix + mType + string(marshal), nil
-}
-
-func encodeBinaryMessage(msg string) ([]byte, error) {
-	buf := bytes.Buffer{}
-	enc := msgpack.NewEncoder(&buf)
-	enc.SetCustomStructTag("json")
-
-	pos := strings.IndexByte(msg, '[')
-	data := make([]interface{}, 0, 2)
-
-	_, err := jsonparser.ArrayEach([]byte(msg[pos:]), func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
-		switch dataType {
-		case jsonparser.Number:
-			parseInt, _ := jsonparser.ParseInt(value)
-			data = append(data, parseInt)
-		case jsonparser.Boolean:
-			bo, _ := jsonparser.ParseBoolean(value)
-			data = append(data, bo)
-		default:
-			data = append(data, string(value))
-		}
-	})
-
-	prefix, err := strconv.ParseUint(string(msg[0]), 10, 8)
-	if err != nil {
-		return nil, err
-	}
-	mType, err := strconv.Atoi(string(msg[1]))
-	if err != nil {
-		return nil, err
-	}
-
-	err = enc.Encode(&MsgPack{
-		Type: mType,
-		Data: data,
-		Nsp:  "/",
-	})
-	if err != nil {
-		return []byte{}, err
-	}
-
-	bf := make([]uint8, 0, 1+buf.Len())
-
-	bf = append(bf, uint8(prefix))
-	bf = append(bf, buf.Bytes()...)
-
-	return bf, nil
-}
-
-func (wsc *Connection) WriteMessage(message string) error {
-	wsc.socket.SetWriteDeadline(time.Now().Add(wsc.transport.SendTimeout))
-
-	var err error
 	var data []byte
 
 	messageType := websocket.TextMessage
-
-	if len(message) <= 2 || message[0] == '0' {
-		messageType = websocket.TextMessage
-		data = []byte(message)
+	if reflect.TypeOf(message).Kind() == reflect.String {
+		data = []byte(message.(string))
 	} else {
 		if wsc.transport.BinaryMessage {
 			messageType = websocket.BinaryMessage
-			data, err = encodeBinaryMessage(message)
-			if err != nil {
-				return err
-			}
 		} else {
-			data = []byte(message)
+			messageType = websocket.TextMessage
+		}
+
+		data, err = encodeMessage(message.(*protocol.MsgPack), messageType)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -201,6 +111,71 @@ func (wsc *Connection) WriteMessage(message string) error {
 		return err
 	}
 	return nil
+}
+
+func decodeMessage(data []byte, messageType int) (string, error) {
+	if messageType == websocket.TextMessage {
+		return string(data), nil
+	}
+
+	prefix := strconv.Itoa(int(data[0]))
+	buf := bytes.NewBuffer(data[1:])
+	dec := msgpack.NewDecoder(buf)
+	dec.SetCustomStructTag("json")
+
+	var m protocol.MsgPack
+	err := dec.Decode(&m)
+	if err != nil {
+		return "", &websocket.CloseError{
+			Code: DecodeErrCode,
+			Text: err.Error(),
+		}
+	}
+
+	msg, err := json.Marshal(m)
+	if err != nil {
+		return "", &websocket.CloseError{
+			Code: DecodeErrCode,
+			Text: err.Error(),
+		}
+	}
+
+	return prefix + string(msg), nil
+}
+
+func encodeMessage(msg *protocol.MsgPack, messageType int) ([]byte, error) {
+	if messageType == websocket.TextMessage {
+		marshal, err := json.Marshal(msg)
+		if err != nil {
+			return nil, err
+		}
+
+		bf := make([]byte, 0, 1+len(marshal))
+		bf = append(bf, []byte(protocol.CommonMsg)[0])
+		bf = append(bf, marshal...)
+
+		return bf, nil
+	}
+
+	buf := bytes.Buffer{}
+	enc := msgpack.NewEncoder(&buf)
+	enc.SetCustomStructTag("json")
+
+	err := enc.Encode(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	prefix, err := strconv.ParseUint(protocol.CommonMsg, 10, 8)
+	if err != nil {
+		return nil, err
+	}
+
+	bf := make([]uint8, 0, 1+buf.Len())
+	bf = append(bf, uint8(prefix))
+	bf = append(bf, buf.Bytes()...)
+
+	return bf, nil
 }
 
 func (wsc *Connection) Close() {

@@ -30,7 +30,6 @@ func GetUrl(host string, port int, secure bool) string {
 func Dial(url string, tr websocket.Transport) (*Client, error) {
 	c := &Client{}
 	c.initChannel()
-	c.initMethods()
 
 	var err error
 	c.conn, err = tr.Connect(url)
@@ -49,7 +48,7 @@ func Dial(url string, tr websocket.Transport) (*Client, error) {
 }
 
 func (c *Client) GenerateNewId(id string) {
-	c.header.GeSid = id
+	c.header.NewSid = id
 }
 
 func (c *Client) Close() {

@@ -15,54 +15,48 @@ var (
 /**
 Send message packet to socket
 */
-func send(c *Channel, msg *protocol.Message, args ...interface{}) error {
-	//preventing json/encoding "index out of range" panic
+func send(c *Channel, msg *protocol.Message) error {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Println("socket.io send panic: ", r)
 		}
 	}()
 
-	command, err := protocol.Encode(msg, args...)
-	if err != nil {
-		return err
-	}
+	out := protocol.GetMsgPacket(msg)
 
 	if len(c.out) == queueBufferSize {
 		return ErrorSocketOverflood
 	}
 
-	c.out <- command
+	c.out <- out
 
 	return nil
 }
 
-/**
-Create packet based on given data and send it
-*/
 func (c *Channel) Emit(method string, args ...interface{}) error {
 	msg := &protocol.Message{
-		Type:   protocol.MessageTypeEmit,
+		Type:   protocol.EVENT,
 		Method: method,
+		Nsp:    "/",
+		Args:   args,
 	}
 
-	return send(c, msg, args...)
+	return send(c, msg)
 }
 
-/**
-Create ack packet based on given data and send it and receive response
-*/
 func (c *Channel) Ack(method string, timeout time.Duration, args ...interface{}) (interface{}, error) {
 	msg := &protocol.Message{
-		Type:   protocol.MessageTypeAckRequest,
+		Type:   protocol.ACK,
 		AckId:  c.ack.getNextId(),
 		Method: method,
+		Nsp:    "/",
+		Args:   args,
 	}
 
 	waiter := make(chan interface{})
 	c.ack.addWaiter(msg.AckId, waiter)
 
-	err := send(c, msg, args...)
+	err := send(c, msg)
 	if err != nil {
 		c.ack.removeWaiter(msg.AckId)
 	}
