@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
+	"github.com/Baiguoshuai1/shadiaosocketio/utils"
 	"github.com/gorilla/websocket"
 	"github.com/vmihailenco/msgpack/v5"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -81,12 +81,13 @@ func (wsc *Connection) GetMessage() (message string, err error) {
 		}
 	}
 
-	//log.Println("get msg", data)
+	utils.Debug("[GetMessage]", data)
 	return wsc.decodeMessage(data, msgType)
 }
 
 func (wsc *Connection) WriteMessage(message interface{}) error {
-	log.Println("WriteMessage", message)
+	utils.Debug("[WriteMessage]", message)
+
 	err := wsc.socket.SetWriteDeadline(time.Now().Add(wsc.transport.SendTimeout))
 	if err != nil {
 		return err
@@ -126,6 +127,7 @@ func (wsc *Connection) WriteMessage(message interface{}) error {
 
 func (wsc *Connection) decodeMessage(data []byte, messageType int) (string, error) {
 	if messageType == websocket.TextMessage {
+		utils.Debug("[decodeMessage]", string(data))
 		return string(data), nil
 	}
 	prefix := ""
@@ -156,7 +158,7 @@ func (wsc *Connection) decodeMessage(data []byte, messageType int) (string, erro
 		}
 	}
 
-	log.Println("decodeMessage", prefix, string(msg))
+	utils.Debug("[decodeMessage]", prefix+string(msg))
 	return prefix + string(msg), nil
 }
 

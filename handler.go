@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
 	"github.com/buger/jsonparser"
-	"log"
 	"reflect"
 	"strconv"
 	"sync"
@@ -148,7 +147,6 @@ func (m *methods) processIncomingMessageText(c *Channel, msg string) {
 		}
 
 		waiter, err := c.ack.getWaiter(ackId)
-		log.Println("receive ack", msg)
 		if err != nil {
 			f, ok := m.findMethod(event)
 			if !ok {

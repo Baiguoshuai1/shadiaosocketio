@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
 	"github.com/Baiguoshuai1/shadiaosocketio/websocket"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -133,7 +132,6 @@ func inLoop(c *Channel, m *methods) error {
 		prefix := string(msg[0])
 		protocolV := c.conn.GetProtocol()
 
-		log.Println("[inLoop]", msg)
 		switch prefix {
 		case protocol.OpenMsg:
 			if err := json.Unmarshal([]byte(msg[1:]), &c.header); err != nil {
