@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
 	"github.com/Baiguoshuai1/shadiaosocketio/websocket"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -57,9 +58,14 @@ type Channel struct {
 	request *http.Request
 }
 
-/**
-create channel, map, and set active
-*/
+func (c *Channel) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
+}
+
+func (c *Channel) LocalAddr() net.Addr {
+	return c.conn.LocalAddr()
+}
+
 func (c *Channel) initChannel() {
 	//TODO: queueBufferSize from constant to server or socket variable
 	c.out = make(chan interface{}, queueBufferSize)

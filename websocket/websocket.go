@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/vmihailenco/msgpack/v5"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -51,6 +52,14 @@ type CloseError struct {
 type Connection struct {
 	socket    *websocket.Conn
 	transport *Transport
+}
+
+func (wsc Connection) RemoteAddr() net.Addr {
+	return wsc.socket.RemoteAddr()
+}
+
+func (wsc Connection) LocalAddr() net.Addr {
+	return wsc.socket.LocalAddr()
 }
 
 func (wsc Connection) GetProtocol() int {

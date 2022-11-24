@@ -83,7 +83,9 @@ func createClient() {
 	}
 
 	err = c.On(shadiaosocketio.OnConnection, func(h *shadiaosocketio.Channel) {
-		log.Println("Connected!", h.Id())
+		log.Println("Connected! id:", h.Id())
+		log.Println(h.LocalAddr().Network() + " " + h.LocalAddr().String() +
+			" --> " + h.RemoteAddr().Network() + " " + h.RemoteAddr().String())
 	})
 
 	time.Sleep(1 * time.Second)

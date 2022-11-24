@@ -21,7 +21,9 @@ func main() {
 	server := shadiaosocketio.NewServer(*websocket.GetDefaultWebsocketTransport())
 
 	server.On(shadiaosocketio.OnConnection, func(c *shadiaosocketio.Channel) {
-		log.Println("received client", c.Id())
+		log.Println("Connected! id:", c.Id())
+		log.Println(c.LocalAddr().Network() + " " + c.LocalAddr().String() +
+			" --> " + c.RemoteAddr().Network() + " " + c.RemoteAddr().String())
 
 		c.Emit("message", Message{10, "main", "using emit"})
 
