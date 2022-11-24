@@ -11,6 +11,11 @@ Examples directory contains simple client and server.
 go get -u github.com/Baiguoshuai1/shadiaosocketio
 ```
 
+### Debug
+```sh
+DEBUG=1 go run server.go
+```
+
 ### Simple server usage
 
 ```go
@@ -41,23 +46,22 @@ func main() {
 
 		c.Emit("message", Message{10, "main", "using emit"})
 
-		c.Join("admin")
-		c.BroadcastTo("admin", "/admin", Message{10, "main", "using broadcast"})
+		c.Join("room")
+		c.BroadcastTo("room", "/admin", Message{10, "main", "using broadcast"})
+
+		server.BroadcastTo("room", "/admin", Message{1, "boss", "hello everyone!"})
 	})
-	server.On(shadiaosocketio.OnDisconnection, func(c *shadiaosocketio.Channel) {
-		log.Println("received disconnect", c.Id())
+	server.On(shadiaosocketio.OnDisconnection, func(c *shadiaosocketio.Channel, reason websocket.CloseError) {
+		log.Println("received disconnect", c.Id(), "code:", reason.Code, "text:", reason.Text)
 	})
 
-	server.On("message", func(c *shadiaosocketio.Channel, arg1 string, arg2 Message, arg3 string) {
-		if arg3 == "" {
-			log.Println("received \"\" string")
-		}
-		log.Println("received arg1:", arg1, "arg2.text:", arg2.Text, "arg3:", arg3)
+	server.On("message", func(c *shadiaosocketio.Channel, arg1 string, arg2 Message, arg3 int, arg4 bool) {
+		log.Println("received arg1:", arg1, "arg2:", arg2, "arg3:", arg3, "arg4:", arg4)
 	})
 
-	server.On("/admin", func(c *shadiaosocketio.Channel, channel Channel) string {
+	server.On("/admin", func(c *shadiaosocketio.Channel, channel Channel) (int, string) {
 		log.Println("client joined to", channel.Channel, "id:", c.Id())
-		return c.Id() + " join success!"
+		return 1, c.Id() + " join success!"
 	})
 
 	serveMux := http.NewServeMux()
@@ -74,10 +78,10 @@ func main() {
 package main
 
 import (
+	"encoding/json"
 	"github.com/Baiguoshuai1/shadiaosocketio"
 	"github.com/Baiguoshuai1/shadiaosocketio/websocket"
 	"log"
-	"reflect"
 	"time"
 )
 
@@ -92,11 +96,30 @@ type Message struct {
 }
 
 func sendJoin(c *shadiaosocketio.Client) {
+	// return [][]byte
 	result, err := c.Ack("/admin", time.Second*5, Channel{"admin"})
 	if err != nil {
-		panic(err)
+		log.Println("sendJoin cb err:", err)
 	} else {
-		log.Println("sendJoin cb:", result, reflect.TypeOf(result))
+		if len(result.([]interface{})) == 0 {
+			return
+		}
+
+		var outArg1 int
+		var outArg2 string
+
+		err := json.Unmarshal(result.([]interface{})[0].([]byte), &outArg1)
+		if err != nil {
+			log.Println("sendJoin cb err:", err)
+			return
+		}
+		err = json.Unmarshal(result.([]interface{})[1].([]byte), &outArg2)
+		if err != nil {
+			log.Println("sendJoin cb err:", err)
+			return
+		}
+
+		log.Println("sendJoin cb:", outArg1, outArg2)
 	}
 }
 
@@ -122,6 +145,13 @@ func createClient() {
 		panic(err)
 	}
 
+	err = c.On("/admin", func(h *shadiaosocketio.Channel, args Message) {
+		log.Println("--- Got admin message: ", args)
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	err = c.On(shadiaosocketio.OnDisconnection, func(h *shadiaosocketio.Channel, reason websocket.CloseError) {
 		log.Println("Disconnected, code:", reason.Code, "text:", reason.Text)
 	})
@@ -130,7 +160,7 @@ func createClient() {
 	}
 
 	err = c.On(shadiaosocketio.OnConnection, func(h *shadiaosocketio.Channel) {
-		log.Println("Connected!")
+		log.Println("Connected!", h.Id())
 	})
 
 	time.Sleep(1 * time.Second)
@@ -163,15 +193,23 @@ socket.on('message', function(msg) {
     console.log('received msg:', msg);
 });
 
+socket.on('/admin', function(msg) {
+    console.log('received admin msg:', msg);
+});
+
 socket.on('connect', function () {
     console.log('socket connected');
 
-    socket.emit('message', "1", { id: 2, text: "js" }, "hello");
+    socket.emit('message', "1", { id: 2, text: "js" }, 3);
 });
+
+socket.on('disconnect', function (e) {
+    console.log('socket disconnect', e);
+});
+
 socket.on('connect_error', function (e) {
     console.log('connect_error', e)
 });
-
 ```
 
 ## License

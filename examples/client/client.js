@@ -13,7 +13,7 @@ socket.on('/admin', function(msg) {
 socket.on('connect', function () {
     console.log('socket connected');
 
-    socket.emit('message', "1", { id: 2, text: "js" }, 2);
+    socket.emit('message', "1", { id: 2, text: "js" }, 3);
 });
 
 socket.on('disconnect', function (e) {
