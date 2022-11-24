@@ -147,14 +147,14 @@ func inLoop(c *Channel, m *methods) error {
 			if protocolV == protocol.Protocol3 {
 				m.callLoopEvent(c, OnConnection)
 				// in protocol v3, the client sends a ping, and the server answers with a pong
-				go schedulePing(c)
+				go SchedulePing(c)
 			}
 			if c.conn.GetProtocol() == protocol.Protocol4 {
 				// in protocol v4 & binary msg Connection to a namespace
 				if c.conn.GetUseBinaryMessage() {
 					c.out <- &protocol.MsgPack{
 						Type: protocol.CONNECT,
-						Nsp:  "/",
+						Nsp:  protocol.DefaultNsp,
 						Data: &struct {
 						}{},
 					}
@@ -209,10 +209,7 @@ func outLoop(c *Channel, m *methods) error {
 	}
 }
 
-/**
-Pinger sends ping messages for keeping connection alive
-*/
-func schedulePing(c *Channel) {
+func SchedulePing(c *Channel) {
 	interval, _ := c.conn.PingParams()
 	ticker := time.NewTicker(interval)
 	for {

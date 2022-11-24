@@ -161,14 +161,28 @@ func (wsc *Connection) decodeMessage(data []byte, messageType int) (string, erro
 }
 
 func (wsc *Connection) encodeMessage(msg *protocol.MsgPack, messageType int) ([]byte, error) {
+	// {
+	//  "type": 3,
+	//  "nsp": "/admin",
+	//  "data": [],
+	//  "id": 456
+	// }
+	// is encoded to 3/admin,456[]
+
+	packet := ""
 	if messageType == websocket.TextMessage {
 		// Engine.IO Flag
 		prefix := protocol.CommonMsg
 		// Socket.IO Flag
 		event := strconv.Itoa(msg.Type)
+		ackId := strconv.Itoa(msg.Id)
 		data, _ := json.Marshal(msg.Data)
 
-		packet := prefix + event + string(data)
+		if msg.Type == protocol.ACK || msg.Id > 0 {
+			packet = prefix + event + ackId + string(data)
+		} else {
+			packet = prefix + event + string(data)
+		}
 
 		return []byte(packet), nil
 	}
@@ -267,7 +281,7 @@ func GetDefaultWebsocketTransport() *Transport {
 		ReceiveTimeout: WsDefaultReceiveTimeout,
 		SendTimeout:    WsDefaultSendTimeout,
 		BufferSize:     WsDefaultBufferSize,
-		BinaryMessage:  true,
+		BinaryMessage:  false,
 		UnsecureTLS:    false,
 	}
 }

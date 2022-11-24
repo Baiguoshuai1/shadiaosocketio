@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
 	"github.com/buger/jsonparser"
+	"log"
 	"reflect"
 	"strconv"
 	"sync"
@@ -131,7 +132,7 @@ func (m *methods) processIncomingMessageText(c *Channel, msg string) {
 			return
 		}
 
-		if len(args) == 0 {
+		if len(args) == 1 {
 			f.callFunc(c, 1)
 			return
 		}
@@ -139,38 +140,46 @@ func (m *methods) processIncomingMessageText(c *Channel, msg string) {
 		f.callFunc(c, 1, args[1:]...)
 
 	case protocol.ACK:
-		//event, args, err := m.getEventArgs(msg)
-		//if err != nil {
-		//	log.Println(err)
-		//	return
-		//}
+		ackId, _ := strconv.Atoi(string(msg[1]))
+		event, args, err := m.getEventArgs(msg[1:])
+		if err != nil {
 
-		//
-		//waiter, err := c.ack.getWaiter(packet.Id)
-		//
-		//if err != nil {
-		//	f, ok := m.findMethod(event)
-		//	if !ok {
-		//		return
-		//	}
-		//
-		//	arr := make([]reflect.Value, 1, 1)
-		//	ackRes := f.callFunc(c, 0, data[1:]...)
-		//	arr[0] = ackRes[0]
-		//
-		//	r := &protocol.Message{
-		//		Type:   packet.Type,
-		//		Method: event,
-		//		Nsp:    packet.Nsp,
-		//		AckId:  packet.Id,
-		//		Args:   []interface{}{arr[0].Interface()},
-		//	}
-		//
-		//	c.out <- protocol.GetMsgPacket(r)
-		//} else {
-		//	// requester
-		//	waiter <- data[1]
-		//}
+			return
+		}
+
+		waiter, err := c.ack.getWaiter(ackId)
+		log.Println("receive ack", msg)
+		if err != nil {
+			f, ok := m.findMethod(event)
+			if !ok {
+				return
+			}
+
+			if len(args) == 1 {
+				f.callFunc(c, 1)
+				return
+			}
+
+			arr := make([]interface{}, 0, 1)
+			ackRes := f.callFunc(c, 1, args[1:]...)
+
+			for _, v := range ackRes {
+				arr = append(arr, v.Interface())
+			}
+
+			r := &protocol.Message{
+				Type:   mType,
+				Method: event,
+				Nsp:    protocol.DefaultNsp,
+				AckId:  ackId,
+				Args:   arr,
+			}
+
+			c.out <- protocol.GetMsgPacket(r)
+		} else {
+			// requester
+			waiter <- args[1:]
+		}
 	case protocol.CONNECT_ERROR:
 		closeChannel(c, m)
 	case protocol.BINARY_EVENT:
@@ -216,7 +225,6 @@ func (m *methods) processIncomingMessage(c *Channel, msg string) {
 		if !ok {
 			return
 		}
-
 		if len(data) == 1 {
 			f.callFunc(c, 0)
 			return
@@ -238,17 +246,24 @@ func (m *methods) processIncomingMessage(c *Channel, msg string) {
 			if !ok {
 				return
 			}
+			if len(data) == 1 {
+				f.callFunc(c, 0)
+				return
+			}
 
-			arr := make([]reflect.Value, 1, 1)
+			arr := make([]interface{}, 0, 1)
 			ackRes := f.callFunc(c, 0, data[1:]...)
-			arr[0] = ackRes[0]
+
+			for _, v := range ackRes {
+				arr = append(arr, v.Interface())
+			}
 
 			r := &protocol.Message{
 				Type:   packet.Type,
 				Method: event,
 				Nsp:    packet.Nsp,
 				AckId:  packet.Id,
-				Args:   []interface{}{arr[0].Interface()},
+				Args:   arr,
 			}
 
 			c.out <- protocol.GetMsgPacket(r)

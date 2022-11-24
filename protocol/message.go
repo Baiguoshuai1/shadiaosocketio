@@ -13,6 +13,8 @@ const (
 	BINARY_ACK    = 6
 )
 
+const DefaultNsp = "/"
+
 // msg value
 const (
 	OpenMsg    = "0"
@@ -28,13 +30,6 @@ type MsgPack struct {
 	Data interface{} `json:"data"`
 	Nsp  string      `json:"nsp"`
 	Id   int         `json:"id"`
-}
-
-type OpenMsgPack struct {
-	MsgPack
-	Data struct {
-		Sid string `json:"sid"`
-	}
 }
 
 type Message struct {

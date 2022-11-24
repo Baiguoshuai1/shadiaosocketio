@@ -13,9 +13,9 @@ type caller struct {
 }
 
 var (
-	ErrorCallerNotFunc     = errors.New("f is not function")
-	ErrorCallerNot2Args    = errors.New("f maximum number of args is 5")
-	ErrorCallerMaxOneValue = errors.New("f number of args returned should be 1")
+	ErrorCallerNotFunc       = errors.New("f is not function")
+	ErrorCallerMaxFiveArgs   = errors.New("f maximum number of args is 5")
+	ErrorCallerMaxFiveValues = errors.New("f maximum number of values is 5")
 )
 
 /**
@@ -29,11 +29,11 @@ func newCaller(f interface{}) (*caller, error) {
 	}
 
 	fType := fVal.Type()
-	if fType.NumOut() > 1 {
-		panic(ErrorCallerMaxOneValue)
+	if fType.NumOut() > 5 {
+		panic(ErrorCallerMaxFiveValues)
 	}
 	if fType.NumIn() > 5 {
-		panic(ErrorCallerNot2Args)
+		panic(ErrorCallerMaxFiveArgs)
 	}
 
 	curCaller := &caller{

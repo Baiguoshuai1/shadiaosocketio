@@ -275,6 +275,11 @@ func onConnectStore(c *Channel) {
 	defer c.server.sidsLock.Unlock()
 
 	c.server.sids[c.Id()] = c
+
+	if c.conn.GetProtocol() == protocol.Protocol4 {
+		// in protocol v4, the server sends a ping, and the client answers with a pong
+		go SchedulePing(c)
+	}
 }
 
 /**
@@ -315,18 +320,37 @@ func (s *Server) SendOpenSequence(c *Channel) {
 		panic(err)
 	}
 
+	// GET /socket.io/?EIO=4&transport=polling&t=N8hyd6w
+	// < HTTP/1.1 200 OK
+	// < Content-Type: text/plain; charset=UTF-8
+	// 0{"sid":"lv_VI97HAXpY6yYWAAAC","upgrades":["websocket"],"pingInterval":25000,"pingTimeout":5000,"maxPayload":1000000}
+	c.out <- protocol.OpenMsg + string(jsonHdr)
+
 	if s.tr.BinaryMessage {
-		// GET /socket.io/?EIO=4&transport=polling&t=N8hyd6w
-		// < HTTP/1.1 200 OK
-		// < Content-Type: text/plain; charset=UTF-8
-		// 0{"sid":"lv_VI97HAXpY6yYWAAAC","upgrades":["websocket"],"pingInterval":25000,"pingTimeout":5000,"maxPayload":1000000}
-		c.out <- protocol.OpenMsg + string(jsonHdr)
+		// in protocol v4 & binary msg ps: {"type":0,"data":{"sid":"HWEr440000:1:R1CHyink:shadiao:101"},"nsp":"/","id":0}
+		c.out <- &protocol.MsgPack{
+			Type: protocol.CONNECT,
+			Nsp:  protocol.DefaultNsp,
+			Data: struct {
+				Sid string `json:"sid"`
+			}{Sid: c.Id()},
+		}
 	} else {
 		// GET /socket.io/?EIO=4&transport=polling&t=N8hyd7H&sid=lv_VI97HAXpY6yYWAAAC
 		// < HTTP/1.1 200 OK
 		// < Content-Type: text/plain; charset=UTF-8
 		// 40
-		c.out <- protocol.CommonMsg + protocol.OpenMsg
+		// in protocol v4 & text msg ps: 0{"sid":"DJehCG0000:1:07d8SFHH:shadiao:101"}
+		marshal, err := json.Marshal(&struct {
+			Sid string `json:"sid"`
+		}{
+			Sid: c.Id(),
+		})
+		if err != nil {
+			panic(err)
+		}
+
+		c.out <- protocol.CommonMsg + protocol.OpenMsg + string(marshal)
 	}
 }
 

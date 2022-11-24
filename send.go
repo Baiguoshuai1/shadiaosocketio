@@ -37,7 +37,7 @@ func (c *Channel) Emit(method string, args ...interface{}) error {
 	msg := &protocol.Message{
 		Type:   protocol.EVENT,
 		Method: method,
-		Nsp:    "/",
+		Nsp:    protocol.DefaultNsp,
 		Args:   args,
 	}
 
@@ -49,7 +49,7 @@ func (c *Channel) Ack(method string, timeout time.Duration, args ...interface{})
 		Type:   protocol.ACK,
 		AckId:  c.ack.getNextId(),
 		Method: method,
-		Nsp:    "/",
+		Nsp:    protocol.DefaultNsp,
 		Args:   args,
 	}
 
@@ -67,6 +67,6 @@ func (c *Channel) Ack(method string, timeout time.Duration, args ...interface{})
 		return result, nil
 	case <-time.After(timeout):
 		c.ack.removeWaiter(msg.AckId)
-		return "", ErrorSendTimeout
+		return nil, ErrorSendTimeout
 	}
 }

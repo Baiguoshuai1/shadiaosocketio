@@ -1,10 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/Baiguoshuai1/shadiaosocketio"
 	"github.com/Baiguoshuai1/shadiaosocketio/websocket"
 	"log"
-	"reflect"
 	"time"
 )
 
@@ -19,11 +19,30 @@ type Message struct {
 }
 
 func sendJoin(c *shadiaosocketio.Client) {
+	// return [][]byte
 	result, err := c.Ack("/admin", time.Second*5, Channel{"admin"})
 	if err != nil {
 		log.Println("sendJoin cb err:", err)
 	} else {
-		log.Println("sendJoin cb:", result, reflect.TypeOf(result))
+		if len(result.([]interface{})) == 0 {
+			return
+		}
+
+		var outArg1 int
+		var outArg2 string
+
+		err := json.Unmarshal(result.([]interface{})[0].([]byte), &outArg1)
+		if err != nil {
+			log.Println("sendJoin cb err:", err)
+			return
+		}
+		err = json.Unmarshal(result.([]interface{})[1].([]byte), &outArg2)
+		if err != nil {
+			log.Println("sendJoin cb err:", err)
+			return
+		}
+
+		log.Println("sendJoin cb:", outArg1, outArg2)
 	}
 }
 

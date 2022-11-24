@@ -15,6 +15,11 @@ socket.on('connect', function () {
 
     socket.emit('message', "1", { id: 2, text: "js" }, 2);
 });
+
+socket.on('disconnect', function (e) {
+    console.log('socket disconnect', e);
+});
+
 socket.on('connect_error', function (e) {
     console.log('connect_error', e)
 });
