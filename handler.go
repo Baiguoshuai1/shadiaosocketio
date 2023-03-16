@@ -1,8 +1,8 @@
 package shadiaosocketio
 
 import (
-	"encoding/json"
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
+	"github.com/Baiguoshuai1/shadiaosocketio/utils"
 	"github.com/buger/jsonparser"
 	"reflect"
 	"strconv"
@@ -16,12 +16,14 @@ const (
 	OnError         = "error"
 )
 
-/**
+/*
+*
 System handler function for internal event processing
 */
 type systemHandler func(c *Channel)
 
-/**
+/*
+*
 Contains maps of message processing functions
 */
 type methods struct {
@@ -42,7 +44,8 @@ func (m *methods) On(method string, f interface{}) error {
 	return nil
 }
 
-/**
+/*
+*
 Find message processing function associated with given method
 */
 func (m *methods) findMethod(method string) (*caller, bool) {
@@ -82,7 +85,7 @@ func (m *methods) getEventArgs(msg string) (string, []interface{}, error) {
 
 		if dataType == jsonparser.String {
 			// string must add "\"\"" ps: "message"
-			marshal, err := json.Marshal("")
+			marshal, err := utils.Json.Marshal("")
 			if err != nil {
 				return
 			}
@@ -121,33 +124,22 @@ func (m *methods) processIncomingMessageText(c *Channel, msg string) {
 	case protocol.DISCONNECT:
 		closeChannel(c, m)
 	case protocol.EVENT:
-		event, args, err := m.getEventArgs(msg)
-		if err != nil {
-			return
-		}
+		// ack
+		if string(msg[1]) != "[" {
+			ackId, err := strconv.Atoi(string(msg[1]))
+			if err != nil {
+				return
+			}
 
-		f, ok := m.findMethod(event)
-		if !ok {
-			return
-		}
+			if ackId < 0 {
+				return
+			}
 
-		if len(args) == 1 {
-			f.callFunc(c, 1)
-			return
-		}
+			event, args, err := m.getEventArgs(msg[1:])
+			if err != nil {
+				return
+			}
 
-		f.callFunc(c, 1, args[1:]...)
-
-	case protocol.ACK:
-		ackId, _ := strconv.Atoi(string(msg[1]))
-		event, args, err := m.getEventArgs(msg[1:])
-		if err != nil {
-
-			return
-		}
-
-		waiter, err := c.ack.getWaiter(ackId)
-		if err != nil {
 			f, ok := m.findMethod(event)
 			if !ok {
 				return
@@ -166,17 +158,40 @@ func (m *methods) processIncomingMessageText(c *Channel, msg string) {
 			}
 
 			r := &protocol.Message{
-				Type:   mType,
-				Method: event,
-				Nsp:    protocol.DefaultNsp,
-				AckId:  ackId,
-				Args:   arr,
+				Type:  protocol.ACK,
+				Nsp:   protocol.DefaultNsp,
+				AckId: ackId,
+				Args:  arr,
 			}
 
 			c.out <- protocol.GetMsgPacket(r)
 		} else {
-			// requester
-			waiter <- args[1:]
+			event, args, err := m.getEventArgs(msg)
+			if err != nil {
+				return
+			}
+
+			f, ok := m.findMethod(event)
+			if !ok {
+				return
+			}
+
+			if len(args) == 1 {
+				f.callFunc(c, 1)
+				return
+			}
+
+			f.callFunc(c, 1, args[1:]...)
+		}
+	case protocol.ACK:
+		ackId, _ := strconv.Atoi(string(msg[1]))
+
+		if waiter, err := c.ack.getWaiter(ackId); err == nil {
+			_, args, err := m.getEventArgs(msg[1:])
+			if err != nil {
+				return
+			}
+			waiter <- args
 		}
 	case protocol.CONNECT_ERROR:
 		closeChannel(c, m)
@@ -192,7 +207,7 @@ func (m *methods) processIncomingMessage(c *Channel, msg string) {
 	}
 
 	packet := &protocol.MsgPack{}
-	err := json.Unmarshal([]byte(msg), &packet)
+	err := utils.Json.UnmarshalFromString(msg, &packet)
 	if err != nil {
 		return
 	}
@@ -213,33 +228,14 @@ func (m *methods) processIncomingMessage(c *Channel, msg string) {
 	case protocol.DISCONNECT:
 		closeChannel(c, m)
 	case protocol.EVENT:
-		data := packet.Data.([]interface{})
-		if len(data) == 0 {
-			return
-		}
-		event := data[0].(string)
+		// ack
+		if packet.Id >= 0 {
+			data := packet.Data.([]interface{})
+			if len(data) == 0 {
+				return
+			}
+			event := data[0].(string)
 
-		f, ok := m.findMethod(event)
-		if !ok {
-			return
-		}
-		if len(data) == 1 {
-			f.callFunc(c, 0)
-			return
-		}
-
-		f.callFunc(c, 0, data[1:]...)
-
-	case protocol.ACK:
-		data := packet.Data.([]interface{})
-		if len(data) == 0 {
-			return
-		}
-		event := data[0].(string)
-
-		waiter, err := c.ack.getWaiter(packet.Id)
-
-		if err != nil {
 			f, ok := m.findMethod(event)
 			if !ok {
 				return
@@ -257,17 +253,34 @@ func (m *methods) processIncomingMessage(c *Channel, msg string) {
 			}
 
 			r := &protocol.Message{
-				Type:   packet.Type,
-				Method: event,
-				Nsp:    packet.Nsp,
-				AckId:  packet.Id,
-				Args:   arr,
+				Type:  protocol.ACK,
+				Nsp:   packet.Nsp,
+				AckId: packet.Id,
+				Args:  arr,
 			}
 
 			c.out <- protocol.GetMsgPacket(r)
 		} else {
-			// requester
-			waiter <- data[1]
+			data := packet.Data.([]interface{})
+			if len(data) == 0 {
+				return
+			}
+			event := data[0].(string)
+
+			f, ok := m.findMethod(event)
+			if !ok {
+				return
+			}
+			if len(data) == 1 {
+				f.callFunc(c, 0)
+				return
+			}
+
+			f.callFunc(c, 0, data[1:]...)
+		}
+	case protocol.ACK:
+		if waiter, err := c.ack.getWaiter(packet.Id); err == nil {
+			waiter <- packet.Data
 		}
 	case protocol.CONNECT_ERROR:
 		closeChannel(c, m)

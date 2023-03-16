@@ -3,12 +3,11 @@ package websocket
 import (
 	"bytes"
 	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
 	"github.com/Baiguoshuai1/shadiaosocketio/utils"
 	"github.com/gorilla/websocket"
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/ugorji/go/codec"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -43,6 +42,11 @@ var (
 	ErrorPacketWrong       = errors.New("wrong packet type error")
 	ErrorMethodNotAllowed  = errors.New("method not allowed")
 	ErrorHttpUpgradeFailed = errors.New("http upgrade failed")
+)
+
+// create and configure Handle
+var (
+	mh codec.MsgpackHandle
 )
 
 type CloseError struct {
@@ -140,17 +144,16 @@ func (wsc *Connection) decodeMessage(data []byte, messageType int) (string, erro
 		return string(data), nil
 	}
 	prefix := ""
-	buf := bytes.NewBuffer(data)
 
 	if wsc.transport.Protocol == protocol.Protocol3 {
 		prefix = strconv.Itoa(int(data[0]))
-		buf = bytes.NewBuffer(data[1:])
+		data = data[1:]
 	}
 
-	dec := msgpack.NewDecoder(buf)
-	dec.SetCustomStructTag("json")
-
-	var m protocol.MsgPack
+	var m = protocol.MsgPack{
+		Id: -1,
+	}
+	dec := codec.NewDecoderBytes(data, &mh)
 	err := dec.Decode(&m)
 	if err != nil {
 		return "", &websocket.CloseError{
@@ -159,7 +162,7 @@ func (wsc *Connection) decodeMessage(data []byte, messageType int) (string, erro
 		}
 	}
 
-	msg, err := json.Marshal(m)
+	msg, err := utils.Json.MarshalToString(&m)
 	if err != nil {
 		return "", &websocket.CloseError{
 			Code: DecodeErrCode,
@@ -167,8 +170,8 @@ func (wsc *Connection) decodeMessage(data []byte, messageType int) (string, erro
 		}
 	}
 
-	utils.Debug("[decodeMessage]", prefix+string(msg))
-	return prefix + string(msg), nil
+	utils.Debug("[decodeMessage]", prefix+msg)
+	return prefix + msg, nil
 }
 
 func (wsc *Connection) encodeMessage(msg *protocol.MsgPack, messageType int) ([]byte, error) {
@@ -187,21 +190,21 @@ func (wsc *Connection) encodeMessage(msg *protocol.MsgPack, messageType int) ([]
 		// Socket.IO Flag
 		event := strconv.Itoa(msg.Type)
 		ackId := strconv.Itoa(msg.Id)
-		data, _ := json.Marshal(msg.Data)
+		data, _ := utils.Json.Marshal(&msg.Data)
 
-		if msg.Type == protocol.ACK || msg.Id > 0 {
+		// sending ack res or sending ack req
+		if msg.Type == protocol.ACK || msg.Id >= 0 {
 			packet = prefix + event + ackId + string(data)
 		} else {
 			packet = prefix + event + string(data)
 		}
 
+		utils.Debug("[encodeMessage]", packet)
 		return []byte(packet), nil
 	}
 
 	buf := bytes.Buffer{}
-	enc := msgpack.NewEncoder(&buf)
-	enc.SetCustomStructTag("json")
-
+	enc := codec.NewEncoder(&buf, &mh)
 	err := enc.Encode(msg)
 	if err != nil {
 		return nil, err
@@ -276,12 +279,14 @@ func (wst *Transport) HandleConnection(
 	return &Connection{socket, wst}, nil
 }
 
-/**
+/*
+*
 Websocket connection do not require any additional processing
 */
 func (wst *Transport) Serve(w http.ResponseWriter, r *http.Request) {}
 
-/**
+/*
+*
 Returns websocket connection with default params
 */
 func GetDefaultWebsocketTransport() *Transport {

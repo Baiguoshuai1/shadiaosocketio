@@ -1,9 +1,9 @@
 package shadiaosocketio
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
+	"github.com/Baiguoshuai1/shadiaosocketio/utils"
 	"github.com/Baiguoshuai1/shadiaosocketio/websocket"
 	"net"
 	"net/http"
@@ -23,7 +23,8 @@ var (
 	ErrorWrongHeader = errors.New("Wrong header")
 )
 
-/**
+/*
+*
 engine.io header to send or receive
 */
 type Header struct {
@@ -33,7 +34,8 @@ type Header struct {
 	PingTimeout  int      `json:"pingTimeout"`
 }
 
-/**
+/*
+*
 socket.io connection handler
 
 use IsAlive to check that handler is still working
@@ -58,6 +60,10 @@ type Channel struct {
 	request *http.Request
 }
 
+func (c *Channel) BinaryMessage() bool {
+	return c.conn.GetUseBinaryMessage()
+}
+
 func (c *Channel) RemoteAddr() net.Addr {
 	return c.conn.RemoteAddr()
 }
@@ -77,7 +83,8 @@ func (c *Channel) Id() string {
 	return c.header.Sid
 }
 
-/**
+/*
+*
 Checks that Channel is still alive
 */
 func (c *Channel) IsAlive() bool {
@@ -94,7 +101,8 @@ func (c *Channel) setAliveValue(value bool) {
 	c.aliveLock.Unlock()
 }
 
-/**
+/*
+*
 Close channel
 */
 func closeChannel(c *Channel, m *methods, args ...interface{}) error {
@@ -128,7 +136,7 @@ func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 	return nil
 }
 
-//incoming messages loop, puts incoming messages to In channel
+// incoming messages loop, puts incoming messages to In channel
 func inLoop(c *Channel, m *methods) error {
 	for {
 		msg, err := c.conn.GetMessage()
@@ -140,7 +148,7 @@ func inLoop(c *Channel, m *methods) error {
 
 		switch prefix {
 		case protocol.OpenMsg:
-			if err := json.Unmarshal([]byte(msg[1:]), &c.header); err != nil {
+			if err := utils.Json.UnmarshalFromString(msg[1:], &c.header); err != nil {
 				closeErr := &websocket.CloseError{}
 				closeErr.Code = websocket.ParseOpenMsgCode
 				closeErr.Text = err.Error()

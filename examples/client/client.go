@@ -8,52 +8,66 @@ import (
 	"time"
 )
 
-type Channel struct {
-	Channel string `json:"channel"`
-}
-
 type Message struct {
 	Id      int    `json:"id"`
 	Channel string `json:"channel"`
-	Text    string `json:"text"`
 }
 
-func sendJoin(c *shadiaosocketio.Client) {
+type Desc struct {
+	Text string `json:"text"`
+}
+
+func sendAck(c *shadiaosocketio.Client) {
 	// return [][]byte
-	result, err := c.Ack("/admin", time.Second*5, Channel{"admin"})
+	result, err := c.Ack("/ackFromClient", time.Second*5, Message{Id: 3, Channel: "client channel"}, 4)
 	if err != nil {
-		log.Println("sendJoin cb err:", err)
+		log.Println("[client] ack cb err:", err)
 	} else {
+		res := result.([]interface{})
+
+		if c.BinaryMessage() {
+			log.Println("[client] ack cb:", res)
+			return
+		}
+
 		if len(result.([]interface{})) == 0 {
 			return
 		}
-
 		var outArg1 int
-		var outArg2 string
+		var outArg2 Desc
+		var outArg3 string
 
-		err := json.Unmarshal(result.([]interface{})[0].([]byte), &outArg1)
+		err := json.Unmarshal(res[0].([]byte), &outArg1)
 		if err != nil {
-			log.Println("sendJoin cb err:", err)
+			log.Println("[client] ack cb err:", err)
 			return
 		}
-		err = json.Unmarshal(result.([]interface{})[1].([]byte), &outArg2)
+		log.Println("[client] ack cb outArg1:", outArg1)
+
+		err = json.Unmarshal(res[1].([]byte), &outArg2)
 		if err != nil {
-			log.Println("sendJoin cb err:", err)
+			log.Println("[client] ack cb err:", err)
 			return
 		}
+		log.Println("[client] ack cb outArg2:", outArg2.Text)
 
-		log.Println("sendJoin cb:", outArg1, outArg2)
+		err = json.Unmarshal(res[2].([]byte), &outArg3)
+		if err != nil {
+			log.Println("[client] ack cb err:", err)
+			return
+		}
+		log.Println("[client] ack cb outArg3:", outArg3)
 	}
 }
 
-func sendMsg(c *shadiaosocketio.Client, args ...interface{}) {
+func sendMessage(c *shadiaosocketio.Client, args ...interface{}) {
 	err := c.Emit("message", args...)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func createClient() {
+func createClient() *shadiaosocketio.Client {
 	c, err := shadiaosocketio.Dial(
 		shadiaosocketio.GetUrl("localhost", 2233, false),
 		*websocket.GetDefaultWebsocketTransport())
@@ -61,47 +75,45 @@ func createClient() {
 		panic(err)
 	}
 
-	err = c.On("message", func(h *shadiaosocketio.Channel, args Message) {
-		log.Println("--- Got chat message: ", args)
+	_ = c.On(shadiaosocketio.OnConnection, func(h *shadiaosocketio.Channel) {
+		log.Println("[client] connected! id:", h.Id())
+		log.Println("[client]", h.LocalAddr().Network()+" "+h.LocalAddr().String()+
+			" --> "+h.RemoteAddr().Network()+" "+h.RemoteAddr().String())
 	})
-	if err != nil {
-		panic(err)
-	}
-
-	err = c.On("/admin", func(h *shadiaosocketio.Channel, args Message) {
-		log.Println("--- Got admin message: ", args)
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	err = c.On(shadiaosocketio.OnDisconnection, func(h *shadiaosocketio.Channel, reason websocket.CloseError) {
-		log.Println("Disconnected, code:", reason.Code, "text:", reason.Text)
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	err = c.On(shadiaosocketio.OnConnection, func(h *shadiaosocketio.Channel) {
-		log.Println("Connected! id:", h.Id())
-		log.Println(h.LocalAddr().Network() + " " + h.LocalAddr().String() +
-			" --> " + h.RemoteAddr().Network() + " " + h.RemoteAddr().String())
+	_ = c.On(shadiaosocketio.OnDisconnection, func(h *shadiaosocketio.Channel, reason websocket.CloseError) {
+		log.Println("[client] disconnected, code:", reason.Code, "text:", reason.Text)
 	})
 
-	time.Sleep(1 * time.Second)
-
-	sendMsg(c, "cool", &Message{
-		Id:   99,
-		Text: "second arg",
+	_ = c.On("message", func(h *shadiaosocketio.Channel, args Message) {
+		log.Println("[client] got chat message:", args)
 	})
-	sendJoin(c)
-	if err != nil {
-		panic(err)
-	}
+	_ = c.On("/admin", func(h *shadiaosocketio.Channel, args Message) {
+		log.Println("[client] got admin message:", args)
+	})
+	// sending ack response
+	_ = c.On("/ackFromServer", func(h *shadiaosocketio.Channel, arg1 string, arg2 int) (Message, int) {
+		log.Println("[client] got ack from server:", arg1, arg2)
+		time.Sleep(3 * time.Second)
+		return Message{
+			Id:      5,
+			Channel: "client",
+		}, 6
+	})
+
+	return c
 }
 
 func main() {
-	createClient()
+	c := createClient()
+
+	time.Sleep(1 * time.Second)
+	sendMessage(c, "client", &Message{
+		Id:      1,
+		Channel: "client channel",
+	}, 2)
+
+	time.Sleep(1 * time.Second)
+	sendAck(c)
 
 	select {}
 }

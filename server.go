@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
+	"github.com/Baiguoshuai1/shadiaosocketio/utils"
 	"github.com/Baiguoshuai1/shadiaosocketio/websocket"
 	"math/rand"
 	"net/http"
@@ -24,7 +24,8 @@ var (
 	ErrorConnectionNotFound = errors.New("connection not found")
 )
 
-/**
+/*
+*
 socket.io server instance
 */
 type Server struct {
@@ -42,7 +43,8 @@ type Server struct {
 	tr websocket.Transport
 }
 
-/**
+/*
+*
 Close current channel
 */
 func (c *Channel) Close() {
@@ -51,7 +53,8 @@ func (c *Channel) Close() {
 	}
 }
 
-/**
+/*
+*
 Get ip of socket socket
 */
 func (c *Channel) Ip() string {
@@ -62,21 +65,24 @@ func (c *Channel) Ip() string {
 	return c.ip
 }
 
-/**
+/*
+*
 Get request header of this connection
 */
 func (c *Channel) RequestHeader() http.Header {
 	return c.request.Header
 }
 
-/**
+/*
+*
 Get request
 */
 func (c *Channel) Request() *http.Request {
 	return c.request
 }
 
-/**
+/*
+*
 Get channel by it's sid
 */
 func (s *Server) GetChannel(sid string) (*Channel, error) {
@@ -91,7 +97,8 @@ func (s *Server) GetChannel(sid string) (*Channel, error) {
 	return c, nil
 }
 
-/**
+/*
+*
 Join this channel to given room
 */
 func (c *Channel) Join(room string) error {
@@ -118,7 +125,8 @@ func (c *Channel) Join(room string) error {
 	return nil
 }
 
-/**
+/*
+*
 Remove this channel from given room
 */
 func (c *Channel) Leave(room string) error {
@@ -145,7 +153,8 @@ func (c *Channel) Leave(room string) error {
 	return nil
 }
 
-/**
+/*
+*
 Get amount of channels, joined to given room, using channel
 */
 func (c *Channel) Amount(room string) int {
@@ -156,7 +165,8 @@ func (c *Channel) Amount(room string) int {
 	return c.server.Amount(room)
 }
 
-/**
+/*
+*
 Get amount of channels, joined to given room, using server
 */
 func (s *Server) Amount(room string) int {
@@ -167,7 +177,8 @@ func (s *Server) Amount(room string) int {
 	return len(roomChannels)
 }
 
-/**
+/*
+*
 Get list of channels, joined to given room, using channel
 */
 func (c *Channel) List(room string) []*Channel {
@@ -178,7 +189,8 @@ func (c *Channel) List(room string) []*Channel {
 	return c.server.List(room)
 }
 
-/**
+/*
+*
 Get list of channels, joined to given room, using server
 */
 func (s *Server) List(room string) []*Channel {
@@ -221,7 +233,8 @@ func (c *Channel) BroadcastTo(room, method string, args interface{}) {
 	}
 }
 
-/**
+/*
+*
 Broadcast message to all room channels
 */
 func (s *Server) BroadcastTo(room, method string, args interface{}) {
@@ -240,7 +253,8 @@ func (s *Server) BroadcastTo(room, method string, args interface{}) {
 	}
 }
 
-/**
+/*
+*
 Broadcast to all clients
 */
 func (s *Server) BroadcastToAll(method string, args interface{}) {
@@ -254,7 +268,8 @@ func (s *Server) BroadcastToAll(method string, args interface{}) {
 	}
 }
 
-/**
+/*
+*
 Generate new id for socket.io connection
 */
 func generateNewId(custom string) string {
@@ -267,7 +282,8 @@ func generateNewId(custom string) string {
 	return buf.String()[:20]
 }
 
-/**
+/*
+*
 On connection system handler, store sid
 */
 func onConnectStore(c *Channel) {
@@ -282,7 +298,8 @@ func onConnectStore(c *Channel) {
 	}
 }
 
-/**
+/*
+*
 On disconnection system handler, clean joins and sid
 */
 func onDisconnectCleanup(c *Channel) {
@@ -315,7 +332,7 @@ func deleteSid(c *Channel) {
 }
 
 func (s *Server) SendOpenSequence(c *Channel) {
-	jsonHdr, err := json.Marshal(&c.header)
+	jsonHdr, err := utils.Json.Marshal(&c.header)
 	if err != nil {
 		panic(err)
 	}
@@ -341,7 +358,7 @@ func (s *Server) SendOpenSequence(c *Channel) {
 		// < Content-Type: text/plain; charset=UTF-8
 		// 40
 		// in protocol v4 & text msg ps: 0{"sid":"DJehCG0000:1:07d8SFHH:shadiao:101"}
-		marshal, err := json.Marshal(&struct {
+		marshal, err := utils.Json.Marshal(&struct {
 			Sid string `json:"sid"`
 		}{
 			Sid: c.Id(),
@@ -354,7 +371,8 @@ func (s *Server) SendOpenSequence(c *Channel) {
 	}
 }
 
-/**
+/*
+*
 Setup event loop for given connection
 */
 func (s *Server) SetupEventLoop(conn *websocket.Connection, remoteAddr string,
@@ -385,7 +403,8 @@ func (s *Server) SetupEventLoop(conn *websocket.Connection, remoteAddr string,
 	s.callLoopEvent(c, OnConnection)
 }
 
-/**
+/*
+*
 implements ServeHTTP function from http.Handler
 */
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -402,7 +421,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.tr.Serve(w, r)
 }
 
-/**
+/*
+*
 Get amount of current connected sids
 */
 func (s *Server) AmountOfSids() int64 {
@@ -412,7 +432,8 @@ func (s *Server) AmountOfSids() int64 {
 	return int64(len(s.sids))
 }
 
-/**
+/*
+*
 Get amount of rooms with at least one channel(or sid) joined
 */
 func (s *Server) AmountOfRooms() int64 {

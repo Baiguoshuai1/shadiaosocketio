@@ -1,8 +1,8 @@
 package shadiaosocketio
 
 import (
-	"encoding/json"
 	"errors"
+	"github.com/Baiguoshuai1/shadiaosocketio/utils"
 	"reflect"
 )
 
@@ -18,7 +18,8 @@ var (
 	ErrorCallerMaxFiveValues = errors.New("f maximum number of values is 5")
 )
 
-/**
+/*
+*
 Parses function passed by using reflection, and stores its representation
 for further call on message or ack
 */
@@ -67,12 +68,12 @@ func (c *caller) callFunc(h *Channel, argsType int, args ...interface{}) []refle
 
 		var marshal []byte
 		if argsType == 0 {
-			marshal, _ = json.Marshal(args[i])
+			marshal, _ = utils.Json.Marshal(args[i])
 		} else {
 			marshal = args[i].([]byte)
 		}
 
-		err := json.Unmarshal(marshal, &data)
+		err := utils.Json.Unmarshal(marshal, &data)
 		if err != nil {
 			panic(err)
 		}

@@ -7,8 +7,13 @@ const (
 )
 
 func GetMsgPacket(msg *Message) *MsgPack {
-	data := make([]interface{}, 0, 1+len(msg.Args))
-	data = append(data, msg.Method)
+	data := make([]interface{}, 1, 1+len(msg.Args))
+	if msg.Method != "" {
+		data[0] = msg.Method
+	} else {
+		// sending ack res
+		data = data[1:]
+	}
 	data = append(data, msg.Args...)
 
 	return &MsgPack{

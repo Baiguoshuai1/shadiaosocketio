@@ -34,8 +34,8 @@ type MsgPack struct {
 
 type Message struct {
 	Type   int
-	AckId  int
-	Method string
+	Method string // maybe as ""
 	Nsp    string
 	Args   []interface{}
+	AckId  int
 }
