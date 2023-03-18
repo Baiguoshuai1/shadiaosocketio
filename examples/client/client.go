@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/Baiguoshuai1/shadiaosocketio"
 	"github.com/Baiguoshuai1/shadiaosocketio/websocket"
+	"github.com/buger/jsonparser"
 	"log"
 	"time"
 )
@@ -85,7 +86,12 @@ func createClient() *shadiaosocketio.Client {
 	})
 
 	_ = c.On("message", func(h *shadiaosocketio.Channel, args Message) {
-		log.Println("[client] got chat message:", args)
+		str, err := jsonparser.GetString([]byte(args.Channel), "chinese")
+		if err != nil {
+			log.Println("[client] parse json err:", err)
+			return
+		}
+		log.Println("[client] got chat message:", str)
 	})
 	_ = c.On("/admin", func(h *shadiaosocketio.Channel, args Message) {
 		log.Println("[client] got admin message:", args)
@@ -96,7 +102,7 @@ func createClient() *shadiaosocketio.Client {
 		time.Sleep(3 * time.Second)
 		return Message{
 			Id:      5,
-			Channel: "client",
+			Channel: "client channel",
 		}, 6
 	})
 

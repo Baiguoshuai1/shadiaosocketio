@@ -2,7 +2,7 @@ const { Server } = require("socket.io");
 const customParser = require('socket.io-msgpack-parser');
 
 const io = new Server(2233, {
-    // parser: customParser
+    parser: customParser
 });
 
 io.on("connection", (socket) => {
@@ -17,10 +17,10 @@ io.on("connection", (socket) => {
         func(1, { text: 'resp' }, "server")
     });
 
-    socket.emit('message', { id: 2, channel: 'server channel'});
+    socket.emit('message', { id: 2, channel: "{\"chinese\":\"中文才是最屌的\"}"})
 
     // emit ack event
-    socket.emit('/ackFromServer', "go", 3, function(arg1, arg2) {
+    socket.emit('/ackFromServer', "vue", 3, function(arg1, arg2) {
         console.log('[server] ack cb:', arg1, arg2)
     });
 });
