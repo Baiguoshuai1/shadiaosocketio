@@ -254,7 +254,7 @@ const { Server } = require("socket.io");
 const customParser = require('socket.io-msgpack-parser');
 
 const io = new Server(2233, {
-    parser: customParser
+    // parser: customParser
 });
 
 io.on("connection", (socket) => {

@@ -297,7 +297,7 @@ func GetDefaultWebsocketTransport() *Transport {
 		ReceiveTimeout: WsDefaultReceiveTimeout,
 		SendTimeout:    WsDefaultSendTimeout,
 		BufferSize:     WsDefaultBufferSize,
-		BinaryMessage:  true,
+		BinaryMessage:  false,
 		UnsecureTLS:    false,
 	}
 }
