@@ -22,8 +22,8 @@ func main() {
 
 	server.On(shadiaosocketio.OnConnection, func(c *shadiaosocketio.Channel) {
 		log.Println("[server] connected! id:", c.Id())
-		log.Println("[server]", c.LocalAddr().Network()+" "+c.LocalAddr().String()+
-			" --> "+c.RemoteAddr().Network()+" "+c.RemoteAddr().String())
+		log.Println("[server]", c.RemoteAddr().Network()+" "+c.RemoteAddr().String()+
+			" --> "+c.LocalAddr().Network()+" "+c.LocalAddr().String())
 
 		c.Join("room")
 		server.BroadcastTo("room", "/admin", Message{1, "new members!"})

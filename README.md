@@ -43,15 +43,15 @@ func main() {
 
 	server.On(shadiaosocketio.OnConnection, func(c *shadiaosocketio.Channel) {
 		log.Println("[server] connected! id:", c.Id())
-		log.Println("[server]", c.LocalAddr().Network()+" "+c.LocalAddr().String()+
-			" --> "+c.RemoteAddr().Network()+" "+c.RemoteAddr().String())
+		log.Println("[server]", c.RemoteAddr().Network()+" "+c.RemoteAddr().String()+
+			" --> "+c.LocalAddr().Network()+" "+c.LocalAddr().String())
 
 		c.Join("room")
 		server.BroadcastTo("room", "/admin", Message{1, "new members!"})
 		time.Sleep(100 * time.Millisecond)
 		c.BroadcastTo("room", "/admin", Message{2, "hello everyone!"})
 
-		_ = c.Emit("message", Message{10, "server channel"})
+		_ = c.Emit("message", Message{10, "{\"chinese\":\"中文才是最屌的\"}"})
 
 		// return [][]byte
 		result, err := c.Ack("/ackFromServer", time.Second*5, "go", 3)
