@@ -8,7 +8,7 @@ const io = new Server(2233, {
 io.on("connection", (socket) => {
     // ...
     socket.on('message', function(arg1, arg2, arg3) {
-       console.log('[server] received message:', arg1, arg2, arg3)
+        console.log('[server] received message:', arg1, arg2, arg3)
     });
 
     // listen ack event

@@ -39,6 +39,10 @@ func main() {
 			return
 		}
 		log.Println("[server] ack cb:", result)
+
+		time.Sleep(3 * time.Second)
+		log.Println("ReadBytes", c.ReadBytes())
+		log.Println("WriteBytes", c.WriteBytes())
 	})
 	server.On(shadiaosocketio.OnDisconnection, func(c *shadiaosocketio.Channel, reason websocket.CloseError) {
 		log.Println("[server] received disconnect", c.Id(), "code:", reason.Code, "text:", reason.Text)

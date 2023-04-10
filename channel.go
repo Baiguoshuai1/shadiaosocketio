@@ -83,6 +83,14 @@ func (c *Channel) Id() string {
 	return c.header.Sid
 }
 
+func (c *Channel) ReadBytes() int {
+	return c.conn.GetReadBytes()
+}
+
+func (c *Channel) WriteBytes() int {
+	return c.conn.GetWriteBytes()
+}
+
 /*
 *
 Checks that Channel is still alive

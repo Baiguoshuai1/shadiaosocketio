@@ -99,7 +99,7 @@ func createClient() *shadiaosocketio.Client {
 	// sending ack response
 	_ = c.On("/ackFromServer", func(h *shadiaosocketio.Channel, arg1 string, arg2 int) (Message, int) {
 		log.Println("[client] got ack from server:", arg1, arg2)
-		time.Sleep(3 * time.Second)
+		time.Sleep(2 * time.Second)
 		return Message{
 			Id:      5,
 			Channel: "client channel",
@@ -120,6 +120,10 @@ func main() {
 
 	time.Sleep(1 * time.Second)
 	sendAck(c)
+
+	time.Sleep(3 * time.Second)
+	log.Println("ReadBytes length:", c.ReadBytes())
+	log.Println("WriteBytes length:", c.WriteBytes())
 
 	select {}
 }

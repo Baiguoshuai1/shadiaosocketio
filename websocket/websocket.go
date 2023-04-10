@@ -8,7 +8,7 @@ import (
 	"github.com/Baiguoshuai1/shadiaosocketio/utils"
 	"github.com/gorilla/websocket"
 	"github.com/ugorji/go/codec"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"reflect"
@@ -24,6 +24,9 @@ const (
 	WsDefaultReceiveTimeout = 60 * time.Second
 	WsDefaultSendTimeout    = 60 * time.Second
 	WsDefaultBufferSize     = 1024 * 32
+
+	maxRecordReadBytes  = 1024 * 1024 * 1024
+	maxRecordWriteBytes = 1024 * 1024 * 1024
 )
 
 const (
@@ -54,24 +57,38 @@ type CloseError struct {
 }
 
 type Connection struct {
-	socket    *websocket.Conn
-	transport *Transport
+	socket     *websocket.Conn
+	transport  *Transport
+	writeBytes int
+	readBytes  int
 }
 
-func (wsc Connection) RemoteAddr() net.Addr {
+func (wsc *Connection) RemoteAddr() net.Addr {
 	return wsc.socket.RemoteAddr()
 }
 
-func (wsc Connection) LocalAddr() net.Addr {
+func (wsc *Connection) LocalAddr() net.Addr {
 	return wsc.socket.LocalAddr()
 }
 
-func (wsc Connection) GetProtocol() int {
+func (wsc *Connection) GetProtocol() int {
 	return wsc.transport.Protocol
 }
 
-func (wsc Connection) GetUseBinaryMessage() bool {
+func (wsc *Connection) GetUseBinaryMessage() bool {
 	return wsc.transport.BinaryMessage
+}
+
+func (wsc *Connection) GetReadBytes() int {
+	v := wsc.readBytes
+	wsc.readBytes = 0
+	return v
+}
+
+func (wsc *Connection) GetWriteBytes() int {
+	v := wsc.writeBytes
+	wsc.writeBytes = 0
+	return v
 }
 
 func (wsc *Connection) GetMessage() (message string, err error) {
@@ -86,7 +103,7 @@ func (wsc *Connection) GetMessage() (message string, err error) {
 	}
 
 	var data []byte
-	data, err = ioutil.ReadAll(reader)
+	data, err = io.ReadAll(reader)
 	if err != nil {
 		return "", &websocket.CloseError{
 			Code: BadBufferErrCode,
@@ -95,6 +112,10 @@ func (wsc *Connection) GetMessage() (message string, err error) {
 	}
 
 	utils.Debug("[GetMessage]", data)
+	if wsc.readBytes > maxRecordReadBytes {
+		wsc.readBytes = 0
+	}
+	wsc.readBytes += len(data)
 	return wsc.decodeMessage(data, msgType)
 }
 
@@ -128,13 +149,16 @@ func (wsc *Connection) WriteMessage(message interface{}) error {
 	if err != nil {
 		return err
 	}
-
 	if _, err := writer.Write(data); err != nil {
 		return err
 	}
 	if err := writer.Close(); err != nil {
 		return err
 	}
+	if wsc.writeBytes > maxRecordWriteBytes {
+		wsc.writeBytes = 0
+	}
+	wsc.writeBytes += len(data)
 	return nil
 }
 
@@ -255,7 +279,7 @@ func (wst *Transport) Connect(url string) (conn *Connection, err error) {
 		return nil, err
 	}
 
-	return &Connection{socket, wst}, nil
+	return &Connection{socket, wst, 0, 0}, nil
 }
 
 func (wst *Transport) HandleConnection(
@@ -276,7 +300,7 @@ func (wst *Transport) HandleConnection(
 		return nil, ErrorHttpUpgradeFailed
 	}
 
-	return &Connection{socket, wst}, nil
+	return &Connection{socket, wst, 0, 0}, nil
 }
 
 /*
