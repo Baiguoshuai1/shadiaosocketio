@@ -1,6 +1,6 @@
 module github.com/Baiguoshuai1/shadiaosocketio
 
-go 1.17
+go 1.20
 
 require (
 	github.com/buger/jsonparser v1.1.1
