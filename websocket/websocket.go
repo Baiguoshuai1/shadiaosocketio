@@ -266,14 +266,20 @@ type Transport struct {
 
 	Protocol      int
 	BufferSize    int
-	UnsecureTLS   bool
 	BinaryMessage bool
+
+	UnsecureTLS   bool
+	TLSConfig     *tls.Config
 
 	RequestHeader http.Header
 }
 
 func (wst *Transport) Connect(url string) (conn *Connection, err error) {
-	dialer := websocket.Dialer{TLSClientConfig: &tls.Config{InsecureSkipVerify: wst.UnsecureTLS}}
+	tlsCfg := wst.TLSConfig
+	if tlsCfg == nil {
+		tlsCfg = &tls.Config{InsecureSkipVerify: wst.UnsecureTLS}
+	}
+	dialer := websocket.Dialer{TLSClientConfig: tlsCfg}
 	socket, _, err := dialer.Dial(url, wst.RequestHeader)
 	if err != nil {
 		return nil, err
@@ -323,5 +329,6 @@ func GetDefaultWebsocketTransport() *Transport {
 		BufferSize:     WsDefaultBufferSize,
 		BinaryMessage:  false,
 		UnsecureTLS:    false,
+		TLSConfig:      nil,
 	}
 }
