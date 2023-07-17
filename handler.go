@@ -77,7 +77,7 @@ func (m *methods) getEventArgs(msg string) (string, []interface{}, error) {
 	event := ""
 	c := 0
 
-	_, err := jsonparser.ArrayEach([]byte(msg[1:]), func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
+	_, err := jsonparser.ArrayEach([]byte(msg), func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
 		c++
 		if c == 1 {
 			event = string(value)
@@ -126,16 +126,12 @@ func (m *methods) processIncomingMessageText(c *Channel, msg string) {
 	case protocol.EVENT:
 		// ack
 		if string(msg[1]) != "[" {
-			ackId, err := strconv.Atoi(string(msg[1]))
-			if err != nil {
+			ackId, offset, err := parseAckId(msg[1:])
+			if err != nil || ackId < 0 {
 				return
 			}
 
-			if ackId < 0 {
-				return
-			}
-
-			event, args, err := m.getEventArgs(msg[1:])
+			event, args, err := m.getEventArgs(msg[1+offset:])
 			if err != nil {
 				return
 			}
@@ -166,7 +162,7 @@ func (m *methods) processIncomingMessageText(c *Channel, msg string) {
 
 			c.out <- protocol.GetMsgPacket(r)
 		} else {
-			event, args, err := m.getEventArgs(msg)
+			event, args, err := m.getEventArgs(msg[1:])
 			if err != nil {
 				return
 			}
@@ -184,10 +180,13 @@ func (m *methods) processIncomingMessageText(c *Channel, msg string) {
 			f.callFunc(c, 1, args[1:]...)
 		}
 	case protocol.ACK:
-		ackId, _ := strconv.Atoi(string(msg[1]))
+		ackId, offset, err := parseAckId(msg[1:])
+		if err != nil || ackId < 0 {
+			return
+		}
 
 		if waiter, err := c.ack.getWaiter(ackId); err == nil {
-			_, args, err := m.getEventArgs(msg[1:])
+			_, args, err := m.getEventArgs(msg[1+offset:])
 			if err != nil {
 				return
 			}
@@ -287,4 +286,15 @@ func (m *methods) processIncomingMessage(c *Channel, msg string) {
 	case protocol.BINARY_EVENT:
 	case protocol.BINARY_ACK:
 	}
+}
+
+func parseAckId(msg string) (int, int, error) {
+	var offset = 0
+	var id = ""
+	for msg[offset] >= 48 && msg[offset] <= 57 {
+		id = id + string(msg[offset])
+		offset++
+	}
+	ret, err := strconv.Atoi(id)
+	return ret, offset, err
 }
