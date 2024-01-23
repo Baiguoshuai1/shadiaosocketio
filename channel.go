@@ -2,13 +2,14 @@ package shadiaosocketio
 
 import (
 	"errors"
-	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
-	"github.com/Baiguoshuai1/shadiaosocketio/utils"
-	"github.com/Baiguoshuai1/shadiaosocketio/websocket"
 	"net"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
+	"github.com/Baiguoshuai1/shadiaosocketio/utils"
+	"github.com/Baiguoshuai1/shadiaosocketio/websocket"
 )
 
 const (
@@ -144,6 +145,13 @@ func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 	return nil
 }
 
+func getConnectData(m *methods) any {
+	if m.connectMessageDataHandler != nil {
+		return m.connectMessageDataHandler()
+	}
+	return struct{}
+}
+
 // incoming messages loop, puts incoming messages to In channel
 func inLoop(c *Channel, m *methods) error {
 	for {
@@ -171,12 +179,13 @@ func inLoop(c *Channel, m *methods) error {
 			}
 			if c.conn.GetProtocol() == protocol.Protocol4 {
 				// in protocol v4 & binary msg Connection to a namespace
+
 				if c.conn.GetUseBinaryMessage() {
+					data := getConnectData(m)
 					c.out <- &protocol.MsgPack{
 						Type: protocol.CONNECT,
 						Nsp:  protocol.DefaultNsp,
-						Data: &struct {
-						}{},
+						Data: &data,
 					}
 					// in protocol v4 & text msg Connection to a namespace
 				} else {

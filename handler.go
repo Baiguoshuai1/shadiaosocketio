@@ -1,12 +1,13 @@
 package shadiaosocketio
 
 import (
-	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
-	"github.com/Baiguoshuai1/shadiaosocketio/utils"
-	"github.com/buger/jsonparser"
 	"reflect"
 	"strconv"
 	"sync"
+
+	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
+	"github.com/Baiguoshuai1/shadiaosocketio/utils"
+	"github.com/buger/jsonparser"
 )
 
 const (
@@ -24,14 +25,22 @@ type systemHandler func(c *Channel)
 
 /*
 *
+* Handler function that should return data to be sent on a CONNECT message
+* For example, can be used for supplying authorization information
+ */
+type connectDataHandler func() any
+
+/*
+*
 Contains maps of message processing functions
 */
 type methods struct {
 	messageHandlers     sync.Map
 	messageHandlersLock sync.RWMutex
 
-	onConnection    systemHandler
-	onDisconnection systemHandler
+	onConnection              systemHandler
+	onDisconnection           systemHandler
+	connectMessageDataHandler connectDataHandler
 }
 
 func (m *methods) On(method string, f interface{}) error {
@@ -42,6 +51,10 @@ func (m *methods) On(method string, f interface{}) error {
 
 	m.messageHandlers.Store(method, c)
 	return nil
+}
+
+func (m *methods) SetConnectDataHandler(handler connectDataHandler) {
+	m.connectMessageDataHandler = handler
 }
 
 /*
