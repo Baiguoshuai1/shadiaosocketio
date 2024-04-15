@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+    <title>Socket.IO chat</title>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
+<script>
+    const logWithTimestamp = (...args) =>  {
+        const timestamp = new Date();
+        const hours = timestamp.getHours().toString().padStart(2, '0');
+        const minutes = timestamp.getMinutes().toString().padStart(2, '0');
+        const seconds = timestamp.getSeconds().toString().padStart(2, '0');
+        const milliseconds = timestamp.getMilliseconds().toString().padStart(3, '0');
+        console.log(`${hours}:${minutes}:${seconds}.${milliseconds}`, '[client]', ...args);
+    }
+    const sleep = (t) => new Promise((r) => setTimeout(r, t))
+
+    const socket = io("ws://127.0.0.1:2233", { transports: ['websocket'] })
+
+    socket.on('message', function(msg) {
+       logWithTimestamp('on msg:', msg);
+    });
+
+    socket.on('/ackFromServer', async function(a, b, f) {
+        logWithTimestamp('on ackFromServer:', a , b);
+        await sleep(2*1000)
+        f({ id: 3, channel: 'client channel' }, 3)
+    });
+
+    socket.on('/admin', function(msg) {
+       logWithTimestamp('on admin msg:', msg);
+    });
+
+    socket.on('connect', async function () {
+       logWithTimestamp('connected! id:', socket.id);
+
+        await sleep(1000)
+        socket.emit('message', 'client', { id: 1, channel: "client channel"}, 1);
+
+        await sleep(1000)
+        logWithTimestamp('send method: ackFromClient, wait for 3s')
+        socket.emit('/ackFromClient',  { id: 2, channel: 'client channel' }, 2, (a, b, c) => {
+           logWithTimestamp('on ackFromClient cb:', a, b, c)
+        });
+    });
+
+    socket.on('disconnect', function (e) {
+       logWithTimestamp('socket disconnect', e);
+    });
+
+    socket.on('connect_error', function (e) {
+       logWithTimestamp('connect_error', e)
+    });
+
+</script>
+</body>
+</html>
