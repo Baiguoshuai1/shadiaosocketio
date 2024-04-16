@@ -23,6 +23,10 @@ func send(c *Channel, msg *protocol.Message) error {
 		}
 	}()
 
+	if !c.IsAlive() {
+		return nil
+	}
+
 	out := protocol.GetMsgPacket(msg)
 
 	if len(c.out) == queueBufferSize {

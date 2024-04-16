@@ -133,11 +133,7 @@ func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 	}
 
 	c.conn.Close()
-
-	//clean outloop
-	for len(c.out) > 0 {
-		<-c.out
-	}
+	c.out <- protocol.CloseMsg
 
 	m.callLoopEvent(c, OnDisconnection, s...)
 
@@ -210,7 +206,7 @@ func outLoop(c *Channel, m *methods) error {
 			closeErr.Code = websocket.QueueBufferSizeCode
 			closeErr.Text = ErrorSocketOverflood.Error()
 
-			return closeChannel(c, m, closeErr)
+			closeChannel(c, m, closeErr)
 		}
 
 		msg := <-c.out
@@ -224,7 +220,7 @@ func outLoop(c *Channel, m *methods) error {
 			closeErr.Code = websocket.WriteBufferErrCode
 			closeErr.Text = err.Error()
 
-			return closeChannel(c, m, closeErr)
+			closeChannel(c, m, closeErr)
 		}
 	}
 }
