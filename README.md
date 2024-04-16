@@ -52,10 +52,10 @@ or
     <tr style="font-weight:bold">
         <td style="font-weight:bold">Golang（server）</td>
         <td></td>
-        <td>❌（Planning）</td>
-        <td>❌（Planning）</td>
-        <td>❌（Planning）</td>
-        <td>❌（Planning）</td>
+        <td>✅</td>
+        <td>✅</td>
+        <td>✅</td>
+        <td>✅</td>
         <td>✅</td>
     <tr>
     <tr>
