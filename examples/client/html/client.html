@@ -5,6 +5,7 @@
 </head>
 <body>
 <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
+<!--<script src="https://cdn.socket.io/4.7.5/socket.io.msgpack.min.js"></script>-->
 <script>
     const logWithTimestamp = (...args) =>  {
         const timestamp = new Date();
@@ -46,7 +47,7 @@
     });
 
     socket.on('disconnect', function (e) {
-       logWithTimestamp('socket disconnect', e);
+       logWithTimestamp('disconnect', e);
     });
 
     socket.on('connect_error', function (e) {

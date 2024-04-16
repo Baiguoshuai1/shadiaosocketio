@@ -221,6 +221,9 @@ func (m *methods) processIncomingMessage(c *Channel, msg string) {
 		if reflect.ValueOf(packet.Data).Len() == 0 {
 			return
 		}
+		if packet.Id < 0 {
+			return
+		}
 
 		c.header.Sid = reflect.ValueOf(packet.Data).MapIndex(reflect.ValueOf("sid")).Interface().(string)
 		m.callLoopEvent(c, OnConnection)

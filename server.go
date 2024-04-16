@@ -9,6 +9,7 @@ import (
 	"github.com/Baiguoshuai1/shadiaosocketio/protocol"
 	"github.com/Baiguoshuai1/shadiaosocketio/utils"
 	"github.com/Baiguoshuai1/shadiaosocketio/websocket"
+	"log"
 	"math/rand"
 	"net/http"
 	"sync"
@@ -411,9 +412,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for key, el := range s.headers {
 		w.Header().Set(key, el)
 	}
+	for key, el := range s.tr.Cors.AllowedHeaders {
+		w.Header().Set(key, el)
+	}
 
 	conn, err := s.tr.HandleConnection(w, r)
 	if err != nil {
+		log.Println(err.Error())
 		return
 	}
 
@@ -441,11 +446,6 @@ func (s *Server) AmountOfRooms() int64 {
 	defer s.channelsLock.RUnlock()
 
 	return int64(len(s.channels))
-}
-
-func (s *Server) EnableCORS(domain string) {
-	s.headers["Access-Control-Allow-Origin"] = domain
-	s.headers["Access-Control-Allow-Credentials"] = "true"
 }
 
 func (s *Server) AddHeader(name string, value string) {

@@ -258,6 +258,12 @@ func (wsc *Connection) PingParams() (interval, timeout time.Duration) {
 	return wsc.transport.PingInterval, wsc.transport.PingTimeout
 }
 
+type Cors struct {
+	Origin         string
+	AllowedHeaders map[string]string
+	Credentials    bool
+}
+
 type Transport struct {
 	PingInterval   time.Duration
 	PingTimeout    time.Duration
@@ -268,10 +274,11 @@ type Transport struct {
 	BufferSize    int
 	BinaryMessage bool
 
-	UnsecureTLS   bool
-	TLSConfig     *tls.Config
+	UnsecureTLS bool
+	TLSConfig   *tls.Config
 
 	RequestHeader http.Header
+	Cors          Cors
 }
 
 func (wst *Transport) Connect(url string) (conn *Connection, err error) {
@@ -292,18 +299,35 @@ func (wst *Transport) HandleConnection(
 	w http.ResponseWriter, r *http.Request) (conn *Connection, err error) {
 
 	if r.Method != "GET" {
-		http.Error(w, upgradeFailed+ErrorMethodNotAllowed.Error(), 503)
 		return nil, ErrorMethodNotAllowed
 	}
 
 	upgrade := &websocket.Upgrader{
 		ReadBufferSize:  wst.BufferSize,
 		WriteBufferSize: wst.BufferSize,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
 	}
+
+	if wst.Cors.Origin != "*" {
+		upgrade.CheckOrigin = func(r *http.Request) bool {
+			if len(wst.Cors.Origin) == 0 {
+				return true
+			}
+			if len(r.Header["Origin"]) == 0 {
+				return true
+			}
+
+			return utils.EqualASCIIFold(wst.Cors.Origin, r.Header.Get("Origin"))
+		}
+
+		w.Header().Set("Access-Control-Allow-Credentials", strconv.FormatBool(wst.Cors.Credentials))
+	}
+
 	socket, err := upgrade.Upgrade(w, r, nil)
 	if err != nil {
-		http.Error(w, upgradeFailed+err.Error(), 503)
-		return nil, ErrorHttpUpgradeFailed
+		return nil, err
 	}
 
 	return &Connection{socket, wst, 0, 0}, nil
@@ -330,5 +354,9 @@ func GetDefaultWebsocketTransport() *Transport {
 		BinaryMessage:  false,
 		UnsecureTLS:    false,
 		TLSConfig:      nil,
+		Cors: Cors{
+			Origin:      "*",
+			Credentials: false,
+		},
 	}
 }

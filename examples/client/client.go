@@ -21,18 +21,17 @@ type Desc struct {
 func sendAck(c *shadiaosocketio.Client) {
 	logWithTimestamp("send method: ackFromClient, wait for 3s")
 
-	// return [][]byte
 	result, err := c.Ack("/ackFromClient", time.Second*5, Message{Id: 2, Channel: "client channel"}, 2)
 	if err != nil {
 		logWithTimestamp("on ackFromClient cb err:", err)
 	} else {
-		res := result.([]interface{})
-
 		if c.BinaryMessage() {
-			logWithTimestamp("on ackFromClient cb:", res)
+			logWithTimestamp("on ackFromClient cb:", result)
 			return
 		}
 
+		// [][]byte
+		res := result.([]interface{})
 		if len(result.([]interface{})) == 0 {
 			return
 		}
